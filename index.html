@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16a34a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Gestion des intrants</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b2430;--mu:#6b7686;--bd:#dde2e9;--ac:#16a34a;--ok:#15803d;--ko:#b91c1c;--wa:#b45309;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--tx:#e8edf3;--mu:#97a3b3;--bd:#2d3744;--ac:#22c55e;--ok:#4ade80;--ko:#f87171;--wa:#fbbf24;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) 40px env(safe-area-inset-left,0)}
+.w{max-width:980px;margin:0 auto}
+header{padding:14px 16px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}h1{font-size:20px;margin:0}
+#ld{font-size:13px;color:var(--mu)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;position:sticky;top:env(safe-area-inset-top,0);background:var(--bg);z-index:5}
+nav button{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:20px;font-size:14px}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+nav b{background:var(--ko);color:#fff;border-radius:10px;padding:0 6px;font-size:12px;margin-left:4px}
+main{padding:8px 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0 12px}
+.k{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}.k div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}.k b{display:block;font-size:24px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
+input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:16px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:6px}.row select{flex:1}.row input{width:100px}.row input.lt,.row input.ex,.row input.fl{width:auto;flex:1}
+.btn{border:0;background:var(--ac);color:#fff;padding:12px;border-radius:10px;font-size:16px;width:100%;margin-top:10px}
+.btn:disabled{opacity:.6}.btn.s{background:transparent;color:var(--ac);border:1px dashed var(--ac);margin-top:4px}
+.x{border:0;background:none;color:var(--ko);font-size:22px;padding:4px 8px}
+.it{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}.it:last-child{border:0}
+.q{font-weight:700;font-variant-numeric:tabular-nums}.low{color:var(--ko)}.mu{color:var(--mu);font-size:13px}
+.tag{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--bd)}.in{color:var(--ok)}.out{color:var(--ko)}
+.al{border-left:5px solid var(--wa);margin-bottom:6px}.al.ko{border-color:var(--ko)}
+.ch{display:flex;gap:8px;margin-top:8px}.cc{flex:1;text-align:center;font-size:12px;color:var(--mu)}
+.bb{height:100px;display:flex;gap:2px;align-items:flex-end;justify-content:center}.bb i{width:40%;min-height:2px;border-radius:3px 3px 0 0}.bb .a{background:var(--ok)}.bb .b{background:var(--ko)}
+.b2{height:6px;background:var(--bd);border-radius:3px}.b2 i{display:block;height:100%;background:var(--ac);border-radius:3px}
+#m{margin:0 12px;border-radius:8px;background:var(--bd);padding:0 10px;height:0;overflow:hidden}#m.on{padding:10px;height:auto;margin-bottom:6px}
+summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+.bar{display:flex;gap:8px}
+@media (orientation:landscape) and (max-height:520px){header{padding-top:6px}nav{padding:4px 12px}.bb{height:70px}.g{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}}
+details.gd>summary{font-weight:600;padding:4px 0}details.gd p,details.gd li{font-size:15px;margin:6px 0}details.gd ul,details.gd ol{padding-left:20px;margin:6px 0}.bar .btn{margin-top:6px}
+</style>
+</head>
+<body>
+<div class="w">
+<header><h1>Gestion des intrants</h1><span id="ld"></span><span id="hd"></span></header>
+<nav id="nav"></nav>
+<div id="m"></div>
+<main id="v"></main>
+</div>
+<script>
+/* ====== CONFIGURATION : URL du déploiement Apps Script ====== */
+const API='https://script.google.com/macros/s/AKfycbwbNeJS1WCUJW98jKT-hsiNv243mhUCp3jA8BoQz2TsfYiBgAxKtyS9fdo7b-HFGfst/exec';
+/* ============================================================ */
+let T=localStorage.getItem('tk')||'',S=null,tab='dash',setup=false,cover=3,q='';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>iso(new Date()),plus=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+let month=today().slice(0,7);
+const say=t=>{const m=$('m');m.textContent=t||'';m.className=t?'on':''};
+const busy=b=>{$('ld').textContent=b?'Synchronisation…':''};
+async function api(b){b.token=T;busy(1);try{
+ const r=await(await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)})).json();
+ if(!r.ok){if(r.error==='SESSION'){logout('Session expirée : reconnectez-vous.');return null}throw new Error(r.error)}return r
+ }catch(e){say(navigator.onLine?'Erreur : '+e.message:'Hors ligne : une connexion est nécessaire.');const s=$('sv');if(s)s.disabled=false;return null}finally{busy(0)}}
+async function act(b,ok){const r=await api(b);if(r&&r.data){S=r.data;if(r.info)say(r.info);else if(ok)say(ok);render();return true}return false}
+async function refresh(){const r=await api({action:'data'});if(r){S=r.data;render();notify()}}
+function logout(m){T='';S=null;localStorage.removeItem('tk');render();say(m||'')}
+/* --- connexion --- */
+const vAuth=()=>`<div class="card"><b>${setup?'Créer le compte gestionnaire':'Connexion'}</b>${setup?'<label>Nom complet</label><input id="an">':''}<label>Identifiant</label><input id="al" autocapitalize="none" autocomplete="username"><label>Mot de passe</label><input id="ap" type="password" autocomplete="current-password">${setup?'<label>E-mail (alertes quotidiennes)</label><input id="ae" type="email">':''}<button class="btn" onclick="login()">${setup?'Créer et entrer':'Se connecter'}</button><button class="btn s" onclick="tab='guide';render()">Guide d’utilisation</button></div>`;
+async function login(){const b={action:setup?'setup':'login',login:$('al').value,password:$('ap').value};if(setup){b.name=$('an').value;b.email=$('ae').value}
+ const r=await api(b);if(r&&r.token){T=r.token;localStorage.setItem('tk',T);setup=false;say('');refresh()}}
+/* --- calculs --- */
+const isM=()=>S.me.role==='gestionnaire';
+const fm=p=>{const c=(S.catalogue||[]).find(x=>x.id===p.cid);return c&&c.forme?c.forme+' · ':''};
+const prod=id=>S.products.find(p=>p.id===id);
+const adj=m=>m.dest==='Ajustement inventaire';
+const outs=(pid,a,z)=>{let t=0;S.moves.forEach(m=>{if(m.type==='out'&&!adj(m)&&m.date>=a&&m.date<=z)m.lines.forEach(l=>{if(l.pid===pid)t+=l.qty})});return t};
+const cmm=pid=>Math.round(outs(pid,plus(-90),today())/3*10)/10; /* consommation moyenne mensuelle sur 3 mois */
+function alerts(){const A=[],t=today(),lim=plus(90);S.products.forEach(p=>{
+ if(p.stock<=0)A.push(['ko','Rupture',p.name]);else if(p.secu>0&&p.stock<=p.secu)A.push(['wa','Sous le stock de sécurité',`${p.name} : ${p.stock} (seuil ${p.secu})`]);
+ p.lots.forEach(l=>{if(!l.exp||l.qty<=0)return;if(l.exp<t)A.push(['ko','Périmé',`${p.name}, lot ${l.lot} : ${l.qty}`]);else if(l.exp<=lim)A.push(['wa','Péremption dans moins de 3 mois',`${p.name}, lot ${l.lot}, ${l.exp} : ${l.qty}`])})});return A}
+function notify(){const A=alerts();if(A.length&&'Notification' in window&&Notification.permission==='granted'&&navigator.serviceWorker)navigator.serviceWorker.ready.then(r=>r.showNotification('Gestion des intrants',{body:A.length+' alerte(s) de stock',icon:'icons/icon-192.png'}))}
+async function askNotif(){if('Notification' in window){await Notification.requestPermission();notify();render()}}
+function csv(name,rows){const t=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download=name+'-'+today()+'.csv';a.click()}
+/* --- navigation --- */
+function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins'],['guide','Guide']];if(on&&isM())t.push(['cat','Catalogue'],['prod','Produits'],['inv','Inventaire'],['usr','Utilisateurs']);
+ $('nav').innerHTML=on?t.map(x=>`<button class="${x[0]===tab?'on':''}" onclick="go('${x[0]}')">${x[1]}${x[0]==='dash'&&alerts().length?'<b>'+alerts().length+'</b>':''}</button>`).join(''):''}
+function go(t){tab=t;say('');render();if(!['in','out','prod','cat','inv','usr','guide'].includes(t))refresh()}
+function render(){$('hd').innerHTML=S?`<span class="mu">${esc(S.me.name)} · ${S.me.role}</span> <button class="x" style="font-size:14px" onclick="logout()">Quitter</button>`:'';
+ if(!T){nav(0);$('v').innerHTML=tab==='guide'?vGuide()+'<button class="btn s" onclick="tab=\'dash\';render()">Retour à la connexion</button>':vAuth();return}
+ if(!S){nav(0);$('v').innerHTML='<div class="card">Chargement…</div>';return}
+ nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,cat:vCat,inv:vInv,usr:vUsr,guide:vGuide};
+ if(!f[tab])tab='dash';$('v').innerHTML=f[tab]();if(tab==='in'||tab==='out')addLine()}
+/* --- tableau de bord --- */
+function vDash(){const A=alerts(),ms=S.moves.filter(m=>m.date.slice(0,7)===month&&!adj(m));let ti=0,to=0;const per={};
+ ms.forEach(m=>m.lines.forEach(l=>{if(m.type==='in')ti+=l.qty;else{to+=l.qty;per[l.pid]=(per[l.pid]||0)+l.qty}}));
+ const top=Object.entries(per).sort((a,b)=>b[1]-a[1]).slice(0,10),mx=top.length?top[0][1]:1;
+ const mo=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);mo.push(iso(d).slice(0,7))}
+ const ag=mo.map(k=>{let a=0,b=0;S.moves.forEach(m=>{if(m.date.slice(0,7)===k&&!adj(m))m.lines.forEach(l=>{m.type==='in'?a+=l.qty:b+=l.qty})});return[k,a,b]});const mm=Math.max(1,...ag.map(x=>Math.max(x[1],x[2])));
+ const nb=A.filter(a=>a[1]!=='Rupture'&&a[1]!=='Sous le stock de sécurité').length;
+ return `<div class="k"><div><b>${S.products.length}</b>Produits</div><div><b class="${A.length?'low':''}">${A.length}</b>Alertes</div><div><b>${nb}</b>Péremptions</div><div><b>${S.moves.length}</b>Bordereaux</div></div>`+
+ (A.length?A.map(a=>`<div class="card al ${a[0]}"><b>${a[1]}</b><div class="mu">${esc(a[2])}</div></div>`).join(''):'<div class="card">Aucune alerte : tous les stocks sont au-dessus du seuil de sécurité.</div>')+
+ (('Notification' in window&&Notification.permission==='default')?'<button class="btn s" onclick="askNotif()">Activer les notifications sur cet appareil</button>':'')+
+ `<div class="card" style="margin-top:10px"><b>Mouvements du mois</b><input type="month" value="${month}" onchange="month=this.value||month;render()" style="margin-top:6px"><div class="k" style="margin:8px 0 0"><div><b class="in">${ti}</b>Entrées</div><div><b class="out">${to}</b>Sorties</div></div></div>`+
+ `<div class="card"><b>Produits les plus utilisés</b>${top.length?top.map(([id,n])=>{const p=prod(id);return `<div style="margin:8px 0"><div class="it" style="border:0;padding:0"><span>${esc(p?p.name:'?')}</span><b>${n}</b></div><div class="b2"><i style="width:${n/mx*100}%"></i></div></div>`}).join(''):'<div class="mu">Aucune sortie ce mois-ci.</div>'}</div>`+
+ `<div class="card"><b>6 derniers mois</b> <span class="mu"><span class="in">■</span> entrées <span class="out">■</span> sorties</span><div class="ch">${ag.map(x=>`<div class="cc"><div class="bb"><i class="a" style="height:${x[1]/mm*100}%"></i><i class="b" style="height:${x[2]/mm*100}%"></i></div>${x[0].slice(5)}/${x[0].slice(2,4)}</div>`).join('')}</div></div>`}
+/* --- stock --- */
+function vStock(){if(!S.products.length)return '<div class="card">Aucun produit.'+(isM()?' Allez dans <b>Produits</b> pour en ajouter.':'')+'</div>';
+ const l=S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),t=today(),lim=plus(90);
+ return `<input placeholder="Rechercher un produit…" value="${esc(q)}" oninput="q=this.value;$('sl').innerHTML=sl()" style="margin-bottom:10px"><div id="sl">${sl()}</div><div class="bar"><button class="btn s" onclick="exStock()">Exporter le stock (CSV)</button></div>`}
+function sl(){const t=today(),lim=plus(90);return '<div class="g">'+(S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).map(p=>{const low=p.stock<=0||(p.secu>0&&p.stock<=p.secu);
+ return `<details class="card"><summary><div class="it" style="border:0;padding:0"><div>${esc(p.name)}<div class="mu">${esc(fm(p))}${esc(p.unit||'')} · sécurité ${p.secu} · CMM ${cmm(p.id)}</div></div><div class="q ${low?'low':''}">${p.stock}</div></div></summary>`+
+ (p.lots.length?p.lots.map(l=>`<div class="it"><span>Lot ${esc(l.lot)}<div class="mu ${l.exp&&l.exp<t?'low':l.exp&&l.exp<=lim?'':''}">${l.exp?'Péremption '+l.exp+(l.exp<t?' (périmé)':l.exp<=lim?' (bientôt)':''):'Sans date de péremption'}</div></span><b>${l.qty}</b></div>`).join(''):'<div class="mu">Aucun lot en stock.</div>')+'</details>'}).join('')||'Aucun résultat.')+'</div>'}
+const exStock=()=>{const r=[['Produit','Unité','Stock total','Stock utilisable','Stock de sécurité','CMM','Lot','Péremption','Quantité du lot']];S.products.forEach(p=>{const b=[p.name,p.unit,p.stock,p.usable,p.secu,cmm(p.id)];if(!p.lots.length)r.push(b.concat(['','','']));p.lots.forEach(l=>r.push(b.concat([l.lot,l.exp,l.qty])))});csv('stock',r)};
+/* --- besoins --- */
+function need(p){return Math.max(0,Math.ceil(cmm(p.id)*cover+p.secu-p.stock))}
+function vNeed(){const l=S.products.slice().sort((a,b)=>need(b)-need(a));
+ return `<div class="card"><label style="margin:0 0 3px">Couverture souhaitée</label><select onchange="cover=+this.value;render()">${[1,2,3,4,6].map(n=>`<option ${n===cover?'selected':''} value="${n}">${n} mois</option>`).join('')}</select><div class="mu" style="margin-top:6px">Besoin = CMM × couverture + stock de sécurité − stock actuel. La CMM est la moyenne mensuelle des sorties des 3 derniers mois.</div></div>`+
+ '<div class="card">'+(l.map(p=>`<div class="it"><div>${esc(p.name)}<div class="mu">Stock ${p.stock} · CMM ${cmm(p.id)} · sécurité ${p.secu}</div></div><div class="q ${need(p)?'low':''}">${need(p)?'+'+need(p):'OK'}</div></div>`).join('')||'Aucun produit.')+'</div>'+
+ '<div class="bar"><button class="btn s" onclick="fiche()">Fiche zone sanitaire (imprimer / PDF)</button><button class="btn s" onclick="exFiche()">Fiche (CSV)</button></div><div class="bar"><button class="btn s" onclick="exNeed()">Exporter les besoins détaillés (CSV)</button></div>'}
+const exNeed=()=>csv('besoins',[['Produit','Stock','CMM','Stock de sécurité','Couverture (mois)','Besoin']].concat(S.products.map(p=>[p.name,p.stock,cmm(p.id),p.secu,cover,need(p)])));
+/* --- bordereaux --- */
+function vForm(t){const o=t==='out';if(!S.products.length)return '<div class="card">Ajoutez d’abord des produits.</div>';
+ return `<div class="card"><b>${o?'Bordereau de sortie':'Bordereau d’approvisionnement'}</b><div class="g"><div><label>N° du bordereau</label><input id="ref"></div><div><label>Date</label><input id="dt" type="date" value="${today()}"></div>`+
+ (o?'<div><label>Type de destination</label><select id="dty"><option>Centre de santé</option><option>Hôpital de zone</option><option>Épidémie (gestion de cas)</option><option>Autre</option></select></div><div><label>Nom de la destination</label><input id="par"></div>':'<div><label>Fournisseur / provenance</label><input id="par"></div>')+
+ `</div><label style="margin-top:14px">Produits${o?' (les lots qui expirent en premier sont sortis en premier)':' : quantité, lot et date de péremption'}</label><div id="lines"></div><button class="btn s" onclick="addLine()">+ Ajouter une ligne</button><button class="btn" id="sv" onclick="saveMove('${t}')">Enregistrer le bordereau</button></div>`}
+function addLine(){const o=tab==='out',d=document.createElement('div');d.className='ln card';d.style.padding='8px';
+ d.innerHTML=`<div class="row"><select>${S.products.map(p=>`<option value="${p.id}">${esc(p.name)}${o?` (dispo ${p.usable})`:''}</option>`).join('')}</select><input type="number" min="1" inputmode="numeric" placeholder="Qté"><button class="x" onclick="this.closest('.ln').remove()">×</button></div>`+(o?'':'<div class="row"><input class="lt" placeholder="N° de lot"><input class="ex" type="date" title="Date de péremption"></div>');$('lines').appendChild(d)}
+function saveMove(t){const L=[],tot={};document.querySelectorAll('#lines .ln').forEach(r=>{const pid=r.querySelector('select').value,n=+r.querySelector('input').value;if(n>0){L.push({pid,qty:n,lot:t==='in'?r.querySelector('.lt').value.trim():'',exp:t==='in'?r.querySelector('.ex').value:''});tot[pid]=(tot[pid]||0)+n}});
+ if(!L.length)return say('Ajoutez au moins un produit avec une quantité.');
+ if(t==='out')for(const k in tot){const p=prod(k);if(tot[k]>p.usable)return say(`Stock utilisable insuffisant pour ${p.name} (disponible : ${p.usable}).`)}
+ const g=id=>{const e=$(id);return e?e.value.trim():''};$('sv').disabled=true;
+ act({action:'saveMove',move:{type:t,date:g('dt')||today(),ref:g('ref'),party:g('par'),dest:g('dty'),lines:L}},'Bordereau enregistré : le stock est mis à jour.').then(ok=>{if(ok)tab='stock';render()})}
+function vHist(){if(!S.moves.length)return '<div class="card">Aucun mouvement.</div>';
+ return '<div class="g">'+S.moves.map(m=>`<div class="card"><div class="it" style="border:0;padding:0"><div><span class="tag ${m.type}">${m.type==='in'?'Entrée':'Sortie'}</span> <b>${esc(m.ref||'Sans n°')}</b><div class="mu">${esc(m.date)} · ${esc((m.dest?m.dest+' · ':'')+(m.party||''))}${m.user?' · par '+esc(m.user):''}</div></div>${isM()?`<button class="x" onclick="delMove('${m.id}')">×</button>`:''}</div>`+
+ m.lines.map(l=>{const p=prod(l.pid);return `<div class="it"><span>${esc(p?p.name:'?')}<div class="mu">${l.lot?'Lot '+esc(l.lot):''}${l.exp?' · exp. '+l.exp:''}</div></span><span class="q ${m.type}">${m.type==='in'?'+':'−'}${l.qty}</span></div>`}).join('')+'</div>').join('')+'</div><div class="bar"><button class="btn s" onclick="exHist()">Exporter l’historique (CSV)</button></div>'}
+function exHist(){const r=[['Date','Type','N° bordereau','Destination','Partenaire','Utilisateur','Produit','Lot','Péremption','Quantité']];
+ S.moves.forEach(m=>m.lines.forEach(l=>{const p=prod(l.pid);r.push([m.date,m.type==='in'?'Entrée':'Sortie',m.ref,m.dest,m.party,m.user,p?p.name:'?',l.lot,l.exp,l.qty])}));csv('mouvements',r)}
+function delMove(id){if(confirm('Supprimer ce bordereau ? Le stock sera recalculé.'))act({action:'deleteMove',id})}
+/* --- produits (gestionnaire) --- */
+const catLab=c=>c.name+(c.dosage?' '+c.dosage:'')+(c.cond?' ('+c.cond+')':'');
+function vProd(){const have=new Set(S.products.map(p=>p.cid)),free=(S.catalogue||[]).filter(c=>!have.has(c.id));
+ return `<div class="card"><b>Mettre des intrants en stock</b><div class="mu">Cochez les intrants du catalogue que vous avez en stock, puis renseignez la quantité, la péremption et le stock de sécurité.</div>`+
+ (free.length?`<input placeholder="Rechercher…" oninput="const v=this.value.toLowerCase();document.querySelectorAll('.cr').forEach(e=>e.style.display=e.dataset.n.includes(v)?'':'none')" style="margin:8px 0">`+
+ free.map(c=>`<div class="cr card" data-n="${esc(catLab(c).toLowerCase())}" style="padding:8px"><label style="display:flex;gap:8px;align-items:center;margin:0;color:var(--tx);font-size:16px"><input type="checkbox" id="k${c.id}" style="width:20px"> <span>${esc(catLab(c))}<div class="mu">${esc(c.forme||'')}</div></span></label><div class="row" style="margin-top:6px"><input id="q${c.id}" type="number" min="0" inputmode="numeric" placeholder="Stock dispo." class="fl"><input id="z${c.id}" type="number" min="0" inputmode="numeric" placeholder="Sécurité" class="fl"><input id="x${c.id}" type="date" title="Péremption" class="fl"></div></div>`).join('')+`<button class="btn" onclick="addFromCat()">Ajouter les intrants cochés au stock</button>`
+ :'<div class="mu" style="margin-top:8px">Tous les intrants du catalogue sont déjà en stock. Ajoutez-en de nouveaux dans l’onglet Catalogue.</div>')+'</div>'+
+ '<b style="margin:6px 4px;display:block">Intrants en stock</b>'+
+ S.products.map(p=>`<div class="card"><div class="row"><input id="n${p.id}" value="${esc(p.name)}" class="fl"><button class="x" onclick="delProd('${p.id}')">×</button></div><div class="g"><div><label>Unité</label><input id="u${p.id}" value="${esc(p.unit||'')}"></div><div><label>Stock de départ</label><input id="i${p.id}" type="number" min="0" value="${p.initial}"></div><div><label>Stock de sécurité</label><input id="s${p.id}" type="number" min="0" value="${p.secu}"></div><div><label>Péremption du stock de départ</label><input id="e${p.id}" type="date" value="${p.expInit}"></div></div><button class="btn s" onclick="updProd('${p.id}')">Enregistrer les modifications</button></div>`).join('')}
+function addFromCat(){const it=[];(S.catalogue||[]).forEach(c=>{const k=$('k'+c.id);if(k&&k.checked)it.push({cid:c.id,initial:+$('q'+c.id).value||0,secu:+$('z'+c.id).value||0,expInit:$('x'+c.id).value})});
+ if(!it.length)return say('Cochez au moins un intrant.');act({action:'addFromCatalogue',items:it},it.length+' intrant(s) ajouté(s) au stock.')}
+/* --- catalogue (gestionnaire) --- */
+const FORMES=['Comprimé','Gélule','Solution buvable','Sirop','Suspension buvable','Sachet (SRO)','Injectable','Perfusion','Pommade','Crème','Collyre','Suppositoire','Solution antiseptique','Consommable','Dispositif médical','Autre'];
+function vCat(){const C=S.catalogue||[],names=[...new Set(C.map(c=>c.name))].sort();
+ return `<div class="card"><b>Nouvel intrant</b><div class="mu">Pour une variante (autre dosage ou forme), gardez le même nom et changez le dosage.</div><div class="g"><div><label>Nom de l’intrant</label><input id="cn" list="dn"><datalist id="dn">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div><div><label>Forme / type</label><input id="cf" list="df" placeholder="Solution buvable, comprimé…"><datalist id="df">${FORMES.map(f=>`<option value="${f}">`).join('')}</datalist></div><div><label>Dosage / grammage</label><input id="cd" placeholder="500 mg, 70°, 125 mg/5 ml…"></div><div><label>Conditionnement</label><input id="cc" placeholder="Boîte de 100, flacon 1 Litre…"></div></div><button class="btn" onclick="addCat()">Ajouter au catalogue</button></div>`+
+ `<details class="card"><summary><b>Importer une liste</b> <span class="mu">(coller plusieurs intrants)</span></summary><div class="mu" style="margin:6px 0">Une ligne par intrant : Nom ; Forme ; Dosage ; Conditionnement</div><textarea id="ci" rows="6" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit" placeholder="Paracétamol ; Comprimé ; 500 mg ; Boîte de 1000&#10;Amoxicilline ; Sirop ; 125 mg/5 ml ; Flacon"></textarea><button class="btn" onclick="impCat()">Importer</button></details>`+
+ `<div class="card"><b>Importer depuis une feuille du Google Sheet</b>${(S.sheets||[]).length?`<div class="mu" style="margin:6px 0">Choisissez l’onglet qui contient la liste des intrants (colonne « Intrant », et si elles existent « Forme », « Dosage », « Conditionnement »).</div><select id="cs">${S.sheets.map(n=>`<option>${esc(n)}</option>`).join('')}</select><button class="btn" onclick="impSheet()">Importer cet onglet</button>`:'<div class="mu" style="margin-top:6px">Aucun autre onglet dans le Sheet. Ajoutez-y un onglet avec la liste des intrants (colonne « Intrant »), puis revenez ici.</div>'}</div>`+
+ names.map(n=>`<div class="card"><div class="it" style="border:0;padding:0"><b>${esc(n)}</b><button class="btn s" style="width:auto;margin:0;padding:6px 10px" onclick="varCat('${esc(n).replace(/'/g,"\\'")}')">+ variante</button></div>`+C.filter(c=>c.name===n).map(c=>`<div class="it"><div>${(S.catalogue.indexOf(c)+1)}. ${esc(catLab(c))}<div class="mu">${esc(c.forme||'Forme non précisée')}${S.products.some(p=>p.cid===c.id)?' · en stock':''}</div></div><span><button class="x" style="color:var(--ac);font-size:18px" onclick="renCat('${c.id}')">✎</button><button class="x" onclick="delCat('${c.id}')">×</button></span></div>`).join('')+'</div>').join('')}
+const addCat=()=>{if(!$('cn').value.trim())return say('Entrez le nom de l’intrant.');act({action:'addCatalogue',item:{name:$('cn').value,forme:$('cf').value,dosage:$('cd').value,cond:$('cc').value}},'Intrant ajouté au catalogue.')};
+const impSheet=()=>act({action:'importSheet',name:$('cs').value},'Onglet importé dans le catalogue.');
+const impCat=()=>act({action:'importCatalogue',text:$('ci').value},'Liste importée.');
+const renCat=id=>{const c=S.catalogue.find(x=>x.id===id),n=prompt('Modifier le nom de l’intrant :',c.name);if(n&&n.trim())act({action:'updateCatalogue',item:{id,name:n.trim(),forme:c.forme,dosage:c.dosage,cond:c.cond}},'Intrant modifié.')};
+const delCat=id=>{if(confirm('Supprimer cet intrant du catalogue ?'))act({action:'deleteCatalogue',id})};
+function varCat(n){$('cn').value=n;$('cd').value='';$('cf').focus();window.scrollTo(0,0)}
+/* --- fiche zone sanitaire --- */
+const nu=p=>{const i=(S.catalogue||[]).findIndex(c=>c.id===p.cid);return i<0?9999:i+1};
+const byN=()=>S.products.slice().sort((a,b)=>nu(a)-nu(b));
+const fr=d=>d?d.split('-').reverse().join('/'):'';
+const early=p=>{const l=p.lots.filter(x=>x.exp&&x.qty>0);return l.length?l[0].exp:''};
+const exFiche=()=>csv('intrants-zs',[['N°','Intrant','Stock dispo.','Péremption','Besoin exprimé']].concat(byN().map(p=>[nu(p)<9999?nu(p):'',p.name,p.stock,fr(early(p)),need(p)||''])));
+function fiche(){const z=prompt('Zone sanitaire :',localStorage.getItem('zs')||'');if(z===null)return;localStorage.setItem('zs',z);
+ const r=byN().map(p=>`<tr><td>${nu(p)<9999?nu(p):''}</td><td>${esc(p.name)}</td><td>${p.stock}</td><td>${fr(early(p))}</td><td>${need(p)||''}</td></tr>`).join('');
+ const w=window.open('','_blank');if(!w)return say('Autorisez les fenêtres pop-up pour imprimer.');
+ w.document.write(`<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Intrants ${esc(z)}</title><style>body{font:14px system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px;text-align:left}th{background:#eee}</style><h2>Intrants - Zone sanitaire : ${esc(z)}</h2><p>Date : ${fr(today())} | Saisi par : ${esc(S.me.name)}</p><table><tr><th>N°</th><th>Intrant</th><th>Stock dispo.</th><th>Péremption</th><th>Besoin exprimé</th></tr>${r}</table><script>setTimeout(function(){print()},400)<\/script>`);w.document.close()}
+const updProd=id=>act({action:'updateProduct',product:{id,name:$('n'+id).value.trim(),unit:$('u'+id).value.trim(),initial:+$('i'+id).value||0,secu:+$('s'+id).value||0,expInit:$('e'+id).value}},'Produit modifié.');
+const delProd=id=>{if(confirm('Supprimer ce produit ?'))act({action:'deleteProduct',id})};
+/* --- utilisateurs (gestionnaire) --- */
+const vUsr=()=>`<div class="card"><b>Nouvel utilisateur</b><div class="g"><div><label>Nom complet</label><input id="un"></div><div><label>Identifiant</label><input id="ul" autocapitalize="none"></div><div><label>Mot de passe (6 caractères min.)</label><input id="up" type="text"></div><div><label>E-mail (facultatif)</label><input id="ue" type="email"></div><div><label>Rôle</label><select id="ur"><option value="utilisateur">Utilisateur (saisie et consultation)</option><option value="gestionnaire">Gestionnaire (tous les droits)</option></select></div></div><button class="btn" onclick="addUsr()">Créer l’utilisateur</button></div>`+
+ '<div class="card">'+S.users.map(u=>`<div class="it"><div>${esc(u.name)} <span class="tag">${u.role}</span><div class="mu">${esc(u.login)}${u.email?' · '+esc(u.email):''}${u.actif?'':' · désactivé'}</div></div><div class="bar"><select style="width:auto" onchange="uu('${u.id}',{role:this.value})"><option value="utilisateur" ${u.role==='utilisateur'?'selected':''}>Utilisateur</option><option value="gestionnaire" ${u.role==='gestionnaire'?'selected':''}>Gestionnaire</option></select><button class="btn s" style="width:auto;margin:0;padding:8px" onclick="pw('${u.id}')">Mot de passe</button><button class="btn s" style="width:auto;margin:0;padding:8px" onclick="uu('${u.id}',{actif:${!u.actif}})">${u.actif?'Désactiver':'Activer'}</button></div></div>`).join('')+'</div>';
+const uu=(id,patch)=>act({action:'updateUser',user:Object.assign({id},patch)},'Utilisateur modifié.');
+const pw=id=>{const p=prompt('Nouveau mot de passe (6 caractères minimum) :');if(p)uu(id,{password:p})};
+const addUsr=()=>act({action:'addUser',user:{name:$('un').value,login:$('ul').value,password:$('up').value,email:$('ue').value,role:$('ur').value}},'Utilisateur créé.');
+/* --- point de disponibilité (inventaire par fichier) --- */
+let INV=null,zeroMissing=false;
+const nz=t=>String(t).toLowerCase().replace(/[^a-z0-9\u00e0-\u00ff]/g,'');
+const invMatch=r=>{const C=S.catalogue||[],b=r.num&&C[r.num-1];return b&&nz(catLab(b))===nz(r.name)?b:C.find(c=>nz(catLab(c))===nz(r.name))};
+function parseCSV(t){t=t.replace(/^\ufeff/,'');const l1=t.split(/\r?\n/)[0],d=[';','\t',','].map(x=>[x,l1.split(x).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ const R=[];let row=[],c='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}else if(ch==='"')q=true;else if(ch===d){row.push(c);c=''}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;row.push(c);R.push(row);row=[];c=''}else c+=ch}
+ if(c||row.length){row.push(c);R.push(row)}return R}
+function normDate(v){v=String(v==null?'':v).trim();if(!v)return '';const p=n=>String(n).padStart(2,'0');let m;
+ if(m=v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/))return (m[3].length===2?'20'+m[3]:m[3])+'-'+p(m[2])+'-'+p(m[1]);
+ if(m=v.match(/^(\d{4})-(\d{2})-(\d{2})/))return m[0];
+ if(m=v.match(/^(\d{1,2})[\/.-](\d{4})$/))return m[2]+'-'+p(m[1])+'-'+p(new Date(+m[2],+m[1],0).getDate());return ''}
+function parseInv(R){let hr=-1;const isH=x=>{x=String(x).trim();return x.length<=25&&/^(intrants?|produits?|d[ée]signation)/i.test(x)};
+ for(let i=0;i<Math.min(R.length,15)&&hr<0;i++)if(R[i].some(isH))hr=i;
+ let cn=0,ci=1,cs=2,ce=3;if(hr>=0){cn=-1;ci=-1;cs=-1;ce=-1;R[hr].forEach((x,k)=>{x=String(x).trim();if(ci<0&&isH(x))ci=k;else if(cn<0&&/^(n[°o]|num)/i.test(x))cn=k;else if(cs<0&&/stock|disponib|quantit|qt[ée]/i.test(x))cs=k;else if(ce<0&&/p[ée]remption|expir/i.test(x))ce=k})}
+ const out=[];R.slice(hr+1).forEach(r=>{const name=String(r[ci]==null?'':r[ci]).trim();if(!name)return;
+  let q=cs>=0?String(r[cs]==null?'':r[cs]).replace(/\s/g,'').replace(',','.'):'';q=q===''||isNaN(+q)?null:Math.round(+q);
+  out.push({num:cn>=0?parseInt(r[cn])||0:0,name,qty:q,exp:ce>=0?normDate(r[ce]):''})});return out}
+const loadX=()=>new Promise((ok,ko)=>{if(window.XLSX)return ok();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
+async function readInv(inp){const f=inp.files[0];if(!f)return;let R;
+ try{if(/\.xlsx?$/i.test(f.name)){await loadX();const wb=XLSX.read(await f.arrayBuffer());R=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}else R=parseCSV(await f.text())}
+ catch(e){return say('Fichier illisible. Utilisez un fichier CSV ou Excel (la lecture Excel demande une connexion).')}
+ INV=parseInv(R);say('');render()}
+function vInv(){const C=S.catalogue||[];let pv='';
+ if(INV){const L=INV.filter(r=>r.qty!==null),ok=L.filter(invMatch),ko=L.filter(r=>!invMatch(r));
+  pv=`<div class="card"><b>Fichier lu</b><div class="k" style="margin:8px 0 0"><div><b>${L.length}</b>Lignes avec quantité</div><div><b class="in">${ok.length}</b>Reconnues</div><div><b class="${ko.length?'low':''}">${ko.length}</b>Non reconnues</div></div>`+
+  (ko.length?`<div class="mu" style="margin-top:8px">Non reconnues (ignorées) : ${ko.slice(0,12).map(r=>esc(r.name)).join(', ')}${ko.length>12?'…':''}</div>`:'')+
+  `<label style="display:flex;gap:8px;align-items:center;color:var(--tx);font-size:15px;margin-top:10px"><input type="checkbox" style="width:20px" ${zeroMissing?'checked':''} onchange="zeroMissing=this.checked"> Mettre à zéro les intrants en stock qui ne sont pas dans le fichier</label>`+
+  `<button class="btn" id="sv" ${ok.length?'':'disabled'} onclick="applyInv()">Appliquer au stock</button></div>`}
+ return `<div class="card"><b>Point de disponibilité</b><div class="mu" style="margin:6px 0">Importez un fichier de disponibilité (CSV ou Excel) pour remettre le stock à jour : quantité disponible et, si elle est renseignée, date de péremption. Les intrants sont reconnus par leur nom (ou leur numéro) dans le catalogue.</div>`+
+ `<button class="btn s" onclick="exModele()">Télécharger le modèle (liste des ${C.length} intrants)</button><label>Fichier de disponibilité</label><input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="readInv(this)"><div class="mu" style="margin-top:6px">Colonnes : N°, Intrant, Stock dispo., Péremption. La colonne « Besoin exprimé » est ignorée : le besoin est calculé par l’application.</div></div>${pv}`+
+ `<div class="card"><div class="mu">Chaque import est enregistré dans l’historique comme « Ajustement inventaire ». Ces ajustements corrigent le stock sans compter comme consommation dans les statistiques.</div></div>`}
+const exModele=()=>csv('modele-disponibilite',[['N°','Intrant','Stock dispo.','Péremption']].concat(S.catalogue.map((c,i)=>{const p=S.products.find(x=>x.cid===c.id);return [i+1,catLab(c),p?p.stock:'',p?fr(early(p)):'']})));
+function applyInv(){const rows=INV.filter(r=>r.qty!==null);if(!confirm('Appliquer ce point de disponibilité ? Le stock des intrants du fichier sera remplacé par les quantités du fichier.'))return;
+ $('sv').disabled=true;act({action:'importInventory',rows,zeroMissing},'Point de disponibilité appliqué.').then(ok=>{if(ok){INV=null;tab='stock'}render()})}
+/* --- guide d'utilisation --- */
+function vGuide(){const s=(t,b,open)=>`<details class="card gd"${open?' open':''}><summary>${t}</summary>${b}</details>`;
+ return '<div class="card"><b>Guide d’utilisation</b><div class="mu">Touchez un titre pour lire la section. Les sections marquées « gestionnaire » ne concernent que le gestionnaire.</div></div>'+
+ s('1. Se connecter',`<ul><li>Entrez votre identifiant et votre mot de passe, donnés par le gestionnaire.</li><li>Au tout premier lancement, l’écran propose de <b>créer le compte gestionnaire</b> : choisissez un identifiant et un mot de passe (6 caractères minimum) et notez-les.</li><li>La session dure quelques heures. Si elle expire, reconnectez-vous.</li><li>Mot de passe oublié : le gestionnaire le réinitialise dans l’onglet Utilisateurs.</li></ul>`,1)+
+ s('2. Tableau de bord et alertes',`<ul><li>En haut : nombre de produits, d’alertes, de péremptions et de bordereaux.</li><li>Les alertes signalent une <b>rupture</b>, un stock <b>sous le seuil de sécurité</b>, un lot <b>périmé</b> ou une <b>péremption dans moins de 3 mois</b>.</li><li>Choisissez un mois pour voir ses entrées, ses sorties et les <b>produits les plus utilisés</b>. Le graphique montre les 6 derniers mois.</li><li>Touchez « Activer les notifications » pour être prévenu sur cet appareil à l’ouverture de l’application.</li></ul>`)+
+ s('3. Stock',`<ul><li>Tapez dans la barre pour chercher un intrant.</li><li>Touchez un intrant pour voir ses <b>lots</b>, leurs dates de péremption et leurs quantités.</li><li>« CMM » est la consommation moyenne mensuelle des 3 derniers mois.</li><li>Un nombre en rouge signale une rupture ou un stock sous le seuil de sécurité.</li><li>Le bouton d’export donne un fichier CSV.</li></ul>`)+
+ s('4. Enregistrer une entrée (approvisionnement)',`<ol><li>Ouvrez <b>Entrée</b>.</li><li>Renseignez le n° du bordereau, la date et le fournisseur.</li><li>Pour chaque produit reçu, ajoutez une ligne : produit, quantité, <b>n° de lot</b> et <b>date de péremption</b>. Utilisez « + Ajouter une ligne » pour les suivants.</li><li>Touchez <b>Enregistrer le bordereau</b> : tous les produits sont ajoutés au stock d’un coup.</li></ol>`)+
+ s('5. Enregistrer une sortie (livraison)',`<ol><li>Ouvrez <b>Sortie</b>.</li><li>Indiquez le n° du bordereau, la date, le <b>type de destination</b> (centre de santé, hôpital de zone, épidémie / gestion de cas, autre) et son nom.</li><li>Ajoutez une ligne par produit avec la quantité. Le stock disponible est affiché à côté du nom.</li><li>Touchez <b>Enregistrer le bordereau</b> : tous les produits sortent du stock.</li></ol><p>Les lots qui expirent en premier sortent en premier. Un lot périmé n’est jamais sorti. Si le stock utilisable est insuffisant, la sortie est refusée.</p>`)+
+ s('6. Historique',`<ul><li>Liste de tous les bordereaux, avec la personne qui les a saisis, les lots et les péremptions.</li><li>Le gestionnaire peut supprimer un bordereau saisi par erreur : le stock est recalculé.</li><li>Le bouton d’export donne un fichier CSV.</li></ul>`)+
+ s('7. Besoins et fiche de zone sanitaire',`<ul><li>Choisissez la couverture souhaitée (en mois).</li><li><b>Besoin = consommation mensuelle × couverture + stock de sécurité − stock actuel.</b></li><li>« Fiche zone sanitaire » ouvre la fiche (N°, Intrant, Stock dispo., Péremption, Besoin exprimé) : imprimez-la ou enregistrez-la en PDF depuis la fenêtre d’impression. Elle existe aussi en CSV.</li></ul>`)+
+ s('8. Catalogue (gestionnaire)',`<ul><li>Le catalogue contient la liste des intrants connus.</li><li><b>Ajouter</b> : nom, forme (comprimé, solution buvable, injectable…), dosage et conditionnement.</li><li><b>+ variante</b> : même nom, autre dosage ou autre forme.</li><li><b>✎</b> corrige le nom. <b>×</b> supprime un intrant qui n’est pas en stock.</li><li>Vous pouvez aussi coller une liste ou importer un onglet du Google Sheet.</li></ul>`)+
+ s('9. Produits en stock (gestionnaire)',`<ul><li>Ouvrez <b>Produits</b> et cochez les intrants que vous avez en stock.</li><li>Pour chacun, indiquez le stock disponible, le stock de sécurité et la péremption éventuelle, puis touchez « Ajouter les intrants cochés au stock ».</li><li>Plus bas, vous pouvez modifier ces valeurs ou retirer un intrant qui n’a aucun mouvement.</li></ul>`)+
+ s('Inventaire : mettre à jour le stock par fichier (gestionnaire)',`<ol><li>Ouvrez <b>Inventaire</b> et téléchargez le modèle : il liste tous les intrants du catalogue avec le stock actuel.</li><li>Remplissez ou corrigez <b>Stock dispo.</b> et, si besoin, <b>Péremption</b>, puis enregistrez en CSV ou Excel.</li><li>Choisissez le fichier. L’application affiche les lignes reconnues et celles qui ne le sont pas.</li><li>Touchez <b>Appliquer au stock</b>. Les quantités du fichier remplacent le stock des intrants concernés.</li></ol><p>Si une péremption est indiquée, le stock de l’intrant devient un seul lot avec cette date. Sinon, seules les quantités sont corrigées. L’option « mettre à zéro » vide les intrants absents du fichier. Les ajustements apparaissent dans l’historique et ne comptent pas comme consommation.</p>`)+
+ s('10. Utilisateurs (gestionnaire)',`<ul><li>Créez un compte avec un nom, un identifiant, un mot de passe et un rôle.</li><li><b>Utilisateur</b> : saisit les bordereaux et consulte. <b>Gestionnaire</b> : tous les droits.</li><li>Vous pouvez changer un rôle, réinitialiser un mot de passe ou désactiver un compte.</li><li>Renseignez l’e-mail du gestionnaire pour recevoir l’alerte quotidienne.</li><li>Gardez toujours au moins deux gestionnaires.</li></ul>`)+
+ s('11. Installer sur le téléphone et orientation',`<ul><li><b>iPhone</b> : dans Safari, Partager puis « Sur l’écran d’accueil ». <b>Android</b> : dans Chrome, menu puis « Installer l’application ».</li><li>L’application suit l’orientation de l’appareil, en portrait comme en paysage, et dans tous les sens. Pour que l’écran tourne, la rotation automatique du téléphone doit être activée.</li><li>Une connexion Internet est nécessaire pour enregistrer.</li></ul>`)+
+ s('12. Bonnes pratiques',`<ul><li>Saisissez chaque entrée et chaque sortie avec un bordereau, le jour même.</li><li>Renseignez toujours le lot et la péremption à l’entrée.</li><li>Fixez un stock de sécurité pour chaque produit important.</li><li>Ne partagez pas votre mot de passe.</li></ul>`)}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(T)refresh();else{render();api({action:'status'}).then(r=>{setup=!!(r&&r.setup);render()})}
+</script>
+</body>
+</html>
