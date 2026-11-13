@@ -80,9 +80,12 @@ function groupMoves() {
 function byExp(a, b) { var x = a.exp || '9999', y = b.exp || '9999'; return x < y ? -1 : x > y ? 1 : 0; }
 function lotsOf(p, moves) {
   var m = {};
-  function add(l, e, q) { var k = l + '|' + e; m[k] = m[k] || { lot: l || 'Sans lot', exp: e, qty: 0 }; m[k].qty += q; }
+  function add(l, e, q, mv) {
+    var k = l + '|' + e; m[k] = m[k] || { lot: l || 'Sans lot', exp: e, qty: 0, src: '', ref: '', date: '' }; m[k].qty += q;
+    if (mv && mv.type === 'in' && !m[k].src) { m[k].src = mv.party || ''; m[k].ref = mv.ref || ''; m[k].date = mv.date || ''; } // source du lot reçu
+  }
   if (p.initial) add('Stock initial', p.expInit, p.initial);
-  moves.forEach(function (mv) { mv.lines.forEach(function (l) { if (l.pid === p.id) add(l.lot, l.exp, mv.type === 'in' ? l.qty : -l.qty); }); });
+  moves.forEach(function (mv) { mv.lines.forEach(function (l) { if (l.pid === p.id) add(l.lot, l.exp, mv.type === 'in' ? l.qty : -l.qty, mv); }); });
   return Object.keys(m).map(function (k) { return m[k]; }).filter(function (x) { return x.qty !== 0; }).sort(byExp);
 }
 function getProducts(moves) {
@@ -122,6 +125,7 @@ function deleteProduct(id) {
 }
 function saveMove(m, u) {
   if (!m || !m.lines || !m.lines.length) throw new Error('Aucune ligne de produit.');
+  if (m.type !== 'in' && m.type !== 'out') throw new Error('Type de bordereau invalide.');
   var moves = groupMoves(), prods = getProducts(moves), t = today(), out = [];
   m.lines.forEach(function (l) {
     var p = prods.filter(function (x) { return x.id === l.pid; })[0];
@@ -392,6 +396,21 @@ function importInventory(b, u) {
     (unk.length ? '. Non reconnus (' + unk.length + ') : ' + unk.slice(0, 8).join(', ') + (unk.length > 8 ? '…' : '') : '.');
 }
 
+/* ---------- Import d'un bordereau (reçu ou livré) ---------- */
+function importBordereau(m, u) { // lignes : { cid (intrant du catalogue), qty, lot, exp }
+  if (!m || !m.lines || !m.lines.length) throw new Error('Aucune ligne dans le bordereau.');
+  var cat = catalogue(), ps = sh('Produits', P), have = {};
+  rows('Produits', P).forEach(function (r) { have[String(r[6])] = String(r[0]); });
+  m.lines.forEach(function (l) {
+    var c = cat.filter(function (x) { return x.id === l.cid; })[0];
+    if (!c) throw new Error("Intrant inconnu du catalogue : associez chaque ligne à un intrant.");
+    if (!have[c.id]) { var id = Utilities.getUuid(); ps.appendRow([id, catLabel(c), c.cond, 0, 0, '', c.id]); have[c.id] = id; } // mis en stock automatiquement
+  });
+  SpreadsheetApp.flush();
+  saveMove({ type: m.type, date: m.date || today(), ref: m.ref, dest: m.dest, party: m.party,
+    lines: m.lines.map(function (l) { return { pid: have[l.cid], qty: +l.qty, lot: l.lot || '', exp: l.exp || '' }; }) }, u);
+}
+
 function doPost(e) {
   try {
     INFO = '';
@@ -404,7 +423,7 @@ function doPost(e) {
     if (a === 'login') return login(b);
     var u = auth(b.token);
     if (a !== 'data') withLock(function () {
-      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory'];
+      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau'];
       if (mgr.indexOf(a) > -1 && u.role !== 'gestionnaire') throw new Error('Réservé au gestionnaire.');
       if (a === 'saveMove') saveMove(b.move, u);
       else if (a === 'addProduct') addProduct(b.product);
@@ -420,6 +439,7 @@ function doPost(e) {
       else if (a === 'addFromCatalogue') addFromCatalogue(b.items);
       else if (a === 'importSheet') importSheet(b.name);
       else if (a === 'importInventory') importInventory(b, u);
+      else if (a === 'importBordereau') importBordereau(b.move, u);
       else throw new Error('Action inconnue.');
     });
     return json({ ok: true, data: getData(u), info: INFO });

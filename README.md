@@ -19,6 +19,9 @@ Application web installable (PWA) de gestion des stocks de produits de santé, a
 ## Point de disponibilité (inventaire)
 Onglet **Inventaire** (gestionnaire) : téléchargez le modèle (tous les intrants du catalogue), remplissez `Stock dispo.` et `Péremption`, puis importez le fichier (CSV ou Excel). Les quantités remplacent le stock des intrants du fichier ; l'option « mettre à zéro » vide ceux qui sont absents. Chaque import est enregistré comme « Ajustement inventaire » et ne compte pas comme consommation.
 
+## Import d'un bordereau
+Onglet **Importer bordereau** (gestionnaire) : choisissez « reçu » (entrée) ou « livré » (sortie), téléchargez le canevas ou prenez un bordereau existant (CSV ou Excel avec Désignation et Quantité, et si présents Lot, Péremption, Date, Source). Les désignations sont associées au catalogue (forme, dosage, conditionnement et stock actuel affichés) et corrigeables avant l'enregistrement. Pour un bordereau reçu, la source est conservée et visible sur chaque lot dans l'onglet Stock.
+
 ## Fichiers
 - `index.html` : l'application. L'URL de l'API est en haut du script (`API`).
 - `Code.gs` : backend Apps Script, à coller dans le Google Sheet.

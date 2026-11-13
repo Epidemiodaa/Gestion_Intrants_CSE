@@ -91,13 +91,13 @@ async function askNotif(){if('Notification' in window){await Notification.reques
 function csv(name,rows){const t=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download=name+'-'+today()+'.csv';a.click()}
 /* --- navigation --- */
-function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins'],['guide','Guide']];if(on&&isM())t.push(['cat','Catalogue'],['prod','Produits'],['inv','Inventaire'],['usr','Utilisateurs']);
+function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins'],['guide','Guide']];if(on&&isM())t.push(['cat','Catalogue'],['prod','Produits'],['inv','Inventaire'],['bdr','Importer bordereau'],['usr','Utilisateurs']);
  $('nav').innerHTML=on?t.map(x=>`<button class="${x[0]===tab?'on':''}" onclick="go('${x[0]}')">${x[1]}${x[0]==='dash'&&alerts().length?'<b>'+alerts().length+'</b>':''}</button>`).join(''):''}
-function go(t){tab=t;say('');render();if(!['in','out','prod','cat','inv','usr','guide'].includes(t))refresh()}
+function go(t){tab=t;say('');render();if(!['in','out','prod','cat','inv','bdr','usr','guide'].includes(t))refresh()}
 function render(){$('hd').innerHTML=S?`<span class="mu">${esc(S.me.name)} · ${S.me.role}</span> <button class="x" style="font-size:14px" onclick="logout()">Quitter</button>`:'';
  if(!T){nav(0);$('v').innerHTML=tab==='guide'?vGuide()+'<button class="btn s" onclick="tab=\'dash\';render()">Retour à la connexion</button>':vAuth();return}
  if(!S){nav(0);$('v').innerHTML='<div class="card">Chargement…</div>';return}
- nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,cat:vCat,inv:vInv,usr:vUsr,guide:vGuide};
+ nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,cat:vCat,inv:vInv,bdr:vBdr,usr:vUsr,guide:vGuide};
  if(!f[tab])tab='dash';$('v').innerHTML=f[tab]();if(tab==='in'||tab==='out')addLine()}
 /* --- tableau de bord --- */
 function vDash(){const A=alerts(),ms=S.moves.filter(m=>m.date.slice(0,7)===month&&!adj(m));let ti=0,to=0;const per={};
@@ -118,8 +118,8 @@ function vStock(){if(!S.products.length)return '<div class="card">Aucun produit.
  return `<input placeholder="Rechercher un produit…" value="${esc(q)}" oninput="q=this.value;$('sl').innerHTML=sl()" style="margin-bottom:10px"><div id="sl">${sl()}</div><div class="bar"><button class="btn s" onclick="exStock()">Exporter le stock (CSV)</button></div>`}
 function sl(){const t=today(),lim=plus(90);return '<div class="g">'+(S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).map(p=>{const low=p.stock<=0||(p.secu>0&&p.stock<=p.secu);
  return `<details class="card"><summary><div class="it" style="border:0;padding:0"><div>${esc(p.name)}<div class="mu">${esc(fm(p))}${esc(p.unit||'')} · sécurité ${p.secu} · CMM ${cmm(p.id)}</div></div><div class="q ${low?'low':''}">${p.stock}</div></div></summary>`+
- (p.lots.length?p.lots.map(l=>`<div class="it"><span>Lot ${esc(l.lot)}<div class="mu ${l.exp&&l.exp<t?'low':l.exp&&l.exp<=lim?'':''}">${l.exp?'Péremption '+l.exp+(l.exp<t?' (périmé)':l.exp<=lim?' (bientôt)':''):'Sans date de péremption'}</div></span><b>${l.qty}</b></div>`).join(''):'<div class="mu">Aucun lot en stock.</div>')+'</details>'}).join('')||'Aucun résultat.')+'</div>'}
-const exStock=()=>{const r=[['Produit','Unité','Stock total','Stock utilisable','Stock de sécurité','CMM','Lot','Péremption','Quantité du lot']];S.products.forEach(p=>{const b=[p.name,p.unit,p.stock,p.usable,p.secu,cmm(p.id)];if(!p.lots.length)r.push(b.concat(['','','']));p.lots.forEach(l=>r.push(b.concat([l.lot,l.exp,l.qty])))});csv('stock',r)};
+ (p.lots.length?p.lots.map(l=>`<div class="it"><span>Lot ${esc(l.lot)}<div class="mu ${l.exp&&l.exp<t?'low':l.exp&&l.exp<=lim?'':''}">${l.exp?'Péremption '+l.exp+(l.exp<t?' (périmé)':l.exp<=lim?' (bientôt)':''):'Sans date de péremption'}${l.src||l.date?`<br>Reçu${l.date?' le '+fr(l.date):''}${l.src?' · source : '+esc(l.src):''}${l.ref?' · bordereau '+esc(l.ref):''}`:''}</div></span><b>${l.qty}</b></div>`).join(''):'<div class="mu">Aucun lot en stock.</div>')+'</details>'}).join('')||'Aucun résultat.')+'</div>'}
+const exStock=()=>{const r=[['Produit','Unité','Stock total','Stock utilisable','Stock de sécurité','CMM','Lot','Péremption','Quantité du lot','Source du lot']];S.products.forEach(p=>{const b=[p.name,p.unit,p.stock,p.usable,p.secu,cmm(p.id)];if(!p.lots.length)r.push(b.concat(['','','','']));p.lots.forEach(l=>r.push(b.concat([l.lot,l.exp,l.qty,l.src||''])))});csv('stock',r)};
 /* --- besoins --- */
 function need(p){return Math.max(0,Math.ceil(cmm(p.id)*cover+p.secu-p.stock))}
 function vNeed(){const l=S.products.slice().sort((a,b)=>need(b)-need(a));
@@ -206,7 +206,7 @@ function parseInv(R){let hr=-1;const isH=x=>{x=String(x).trim();return x.length<
   out.push({num:cn>=0?parseInt(r[cn])||0:0,name,qty:q,exp:ce>=0?normDate(r[ce]):''})});return out}
 const loadX=()=>new Promise((ok,ko)=>{if(window.XLSX)return ok();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
 async function readInv(inp){const f=inp.files[0];if(!f)return;let R;
- try{if(/\.xlsx?$/i.test(f.name)){await loadX();const wb=XLSX.read(await f.arrayBuffer());R=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}else R=parseCSV(await f.text())}
+ try{if(/\.xlsx?$/i.test(f.name)){await loadX();const wb=XLSX.read(await f.arrayBuffer());R=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:'',dateNF:'dd/mm/yyyy'})}else R=parseCSV(await f.text())}
  catch(e){return say('Fichier illisible. Utilisez un fichier CSV ou Excel (la lecture Excel demande une connexion).')}
  INV=parseInv(R);say('');render()}
 function vInv(){const C=S.catalogue||[];let pv='';
@@ -221,6 +221,56 @@ function vInv(){const C=S.catalogue||[];let pv='';
 const exModele=()=>csv('modele-disponibilite',[['N°','Intrant','Stock dispo.','Péremption']].concat(S.catalogue.map((c,i)=>{const p=S.products.find(x=>x.cid===c.id);return [i+1,catLab(c),p?p.stock:'',p?fr(early(p)):'']})));
 function applyInv(){const rows=INV.filter(r=>r.qty!==null);if(!confirm('Appliquer ce point de disponibilité ? Le stock des intrants du fichier sera remplacé par les quantités du fichier.'))return;
  $('sv').disabled=true;act({action:'importInventory',rows,zeroMissing},'Point de disponibilité appliqué.').then(ok=>{if(ok){INV=null;tab='stock'}render()})}
+/* --- import d'un bordereau (reçu ou livré) --- */
+let BL=null,blType='in';
+const toks=t=>String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/(\d)([a-z])/g,'$1 $2').replace(/([a-z])(\d)/g,'$1 $2').split(/[^a-z0-9]+/).map(x=>x.length>3?x.replace(/[sx]$/,''):x).filter(x=>x.length>1||/\d/.test(x));
+function blGuess(name){const C=S.catalogue||[],k=nz(name);let c=C.find(x=>nz(catLab(x))===k);if(c)return[c.id,false];
+ c=k.length>=5?C.find(x=>{const y=nz(catLab(x));return y.includes(k)||k.includes(y)}):null;if(c)return[c.id,true];
+ const a=new Set(toks(name));let best=null,sc=0;C.forEach(x=>{const b=new Set(toks(catLab(x))),i=[...a].filter(t=>b.has(t)).length,u=new Set([...a,...b]).size,s=u?i/u:0;if(s>sc){sc=s;best=x}});
+ return sc>=0.5?[best.id,true]:['',false]}
+function parseBdr(R){const isD=x=>{x=String(x==null?'':x).trim();return x.length<=30&&/^(d[ée]signation|intrants?|produits?|libell[ée]|article)/i.test(x)};
+ let hr=-1;for(let i=0;i<Math.min(R.length,40)&&hr<0;i++)if(R[i].some(isD))hr=i;
+ const meta={ref:'',date:'',party:'',dest:'',destType:''},get=(r,k)=>{for(let j=k+1;j<r.length;j++){const v=String(r[j]==null?'':r[j]).trim();if(v)return v}return ''};
+ R.slice(0,Math.max(hr,0)).forEach(r=>r.forEach((cell,k)=>{const t=String(cell==null?'':cell).trim();if(!t)return;const m=t.match(/^([^:]{2,40}):\s*(.*)$/);let lab=t,val='';if(m){lab=m[1];val=m[2].trim()}if(!val&&/bordereau/i.test(t)){const n=t.match(/n[°o]\s*[:.]?\s*([\w\-\/]+)\s*$/i);if(n&&!meta.ref)meta.ref=n[1]}if(!val)val=get(r,k);if(!val)return;const L=lab.toLowerCase();
+  if(/type de destination/.test(L))meta.destType=val;else if(/bordereau|n[°o]\s*b/.test(L)){if(!meta.ref)meta.ref=val}else if(/date/.test(L)){if(!meta.date)meta.date=normDate(val)}else if(/source|provenance|fournisseur|exp[ée]diteur|origine/.test(L)){if(!meta.party)meta.party=val}else if(/destination|destinataire/.test(L)){if(!meta.dest)meta.dest=val}}));
+ let cD=0,cQ=1,cL=-1,cE=-1,cT=-1,cS=-1;
+ if(hr>=0){cD=-1;cQ=-1;(R[hr]||[]).forEach((x,k)=>{x=String(x==null?'':x).trim();if(cD<0&&isD(x))cD=k;else if(cQ<0&&/quantit|^qt[ée]|^qte/i.test(x))cQ=k;else if(cL<0&&/^lot|n[°o]\s*lot/i.test(x))cL=k;else if(cE<0&&/p[ée]remption|expir/i.test(x))cE=k;else if(cT<0&&/date/i.test(x))cT=k;else if(cS<0&&/source|provenance|fournisseur|origine|destination/i.test(x))cS=k})}
+ const lines=[];R.slice(hr+1).forEach(r=>{const raw=String(r[cD]==null?'':r[cD]).trim();if(!raw)return;let q=cQ>=0?String(r[cQ]==null?'':r[cQ]).replace(/\s/g,'').replace(',','.'):'';q=q===''||isNaN(+q)?0:Math.round(+q);if(q<=0)return;
+  if(cT>=0&&!meta.date)meta.date=normDate(r[cT]);if(cS>=0&&!meta.party&&String(r[cS]||'').trim())meta.party=String(r[cS]).trim();
+  const g=blGuess(raw);lines.push({raw,cid:g[0],sug:g[1],qty:q,lot:cL>=0?String(r[cL]==null?'':r[cL]).trim():'',exp:cE>=0?normDate(r[cE]):''})});
+ return{meta,lines}}
+async function readBdr(inp){const f=inp.files[0];if(!f)return;let R;
+ try{if(/\.xlsx?$/i.test(f.name)){await loadX();const wb=XLSX.read(await f.arrayBuffer());R=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:'',dateNF:'dd/mm/yyyy'})}else R=parseCSV(await f.text())}
+ catch(e){return say('Fichier illisible. Utilisez un fichier CSV ou Excel (la lecture Excel demande une connexion).')}
+ const p=parseBdr(R);if(!p.lines.length)return say('Aucune ligne avec une quantité n’a été trouvée dans ce fichier.');
+ BL={type:blType,ref:p.meta.ref,date:p.meta.date||today(),party:blType==='in'?(p.meta.party||p.meta.dest):(p.meta.dest||p.meta.party),destType:p.meta.destType||'Centre de santé',lines:p.lines,file:f.name};say('');render()}
+function vBdr(){const C=S.catalogue||[],out=blType==='out';
+ let pv='';if(BL){const o=BL.type==='out',n=BL.lines.filter(l=>!l.cid).length,sg=BL.lines.filter(l=>l.sug&&l.cid).length;
+  pv=`<div class="card"><b>Bordereau lu : ${esc(BL.file)}</b><div class="g"><div><label>N° du bordereau</label><input value="${esc(BL.ref)}" onchange="BL.ref=this.value"></div><div><label>Date de l’opération</label><input type="date" value="${esc(BL.date)}" onchange="BL.date=this.value"></div>`+
+  `<div><label>${o?'Nom de la destination':'Source / provenance des produits reçus'}</label><input value="${esc(BL.party)}" onchange="BL.party=this.value"></div>`+
+  (o?`<div><label>Type de destination</label><select onchange="BL.destType=this.value">${['Centre de santé','Hôpital de zone','Épidémie (gestion de cas)','Autre'].map(x=>`<option ${x===BL.destType?'selected':''}>${x}</option>`).join('')}</select></div>`:'')+`</div>`+
+  `<div class="mu" style="margin-top:8px">${BL.lines.length} ligne(s)${n?' · <span class="low">'+n+' à associer</span>':''}${sg?' · '+sg+' correspondance(s) suggérée(s) à vérifier':''}</div></div>`+
+  BL.lines.map((l,i)=>{const c=C.find(x=>x.id===l.cid),p=c&&S.products.find(x=>x.cid===c.id);
+   return `<div class="card" style="padding:8px"><div class="it" style="border:0;padding:0"><div class="mu">Dans le fichier : ${esc(l.raw)}</div><button class="x" onclick="blDel(${i})">×</button></div>`+
+   `<select onchange="blSet(${i},this.value)"><option value="">— Choisir l’intrant du catalogue —</option>${C.map((x,j)=>`<option value="${x.id}" ${x.id===l.cid?'selected':''}>${j+1}. ${esc(catLab(x))}</option>`).join('')}</select>`+
+   (c?`<div class="mu" style="margin-top:4px">${esc(c.forme||'Forme non précisée')} · dosage : ${esc(c.dosage||'—')} · conditionnement : ${esc(c.cond||'—')} · stock actuel : ${p?(o?p.usable+' utilisable':p.stock):0}</div>${l.sug?'<div class="mu" style="color:var(--wa)">Correspondance suggérée : vérifiez-la.</div>':''}`:'<div class="mu low" style="margin-top:4px">Non reconnu : choisissez l’intrant.</div>')+
+   `<div class="row" style="margin-top:6px"><input type="number" min="1" inputmode="numeric" value="${l.qty}" onchange="BL.lines[${i}].qty=+this.value" placeholder="Qté">${o?'':`<input class="lt" placeholder="N° de lot" value="${esc(l.lot)}" onchange="BL.lines[${i}].lot=this.value"><input class="ex" type="date" title="Péremption" value="${esc(l.exp)}" onchange="BL.lines[${i}].exp=this.value">`}</div></div>`}).join('')+
+  `<button class="btn" id="sv" onclick="saveBdr()">Enregistrer le bordereau</button>`}
+ return `<div class="card"><b>Importer un bordereau</b><div class="mu" style="margin:6px 0">Importez un bordereau de réception ou de livraison (CSV ou Excel). L’application lit les désignations, les quantités, la date et la source, les associe aux intrants du catalogue et vous les présente avant l’enregistrement.</div>`+
+ `<label>Type de bordereau</label><select onchange="blType=this.value;if(BL)BL.type=blType;render()"><option value="in" ${out?'':'selected'}>Bordereau reçu (entrée en stock)</option><option value="out" ${out?'selected':''}>Bordereau livré (sortie de stock)</option></select>`+
+ `<button class="btn s" onclick="exBdrModele()">Télécharger le canevas à remplir (${out?'livraison':'réception'})</button><label>Fichier du bordereau</label><input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="readBdr(this)"><div class="mu" style="margin-top:6px">Colonnes reconnues : Désignation, Quantité, Lot, Péremption, Date, Source. La source et la date peuvent aussi être en haut du fichier (« Source : … », « Date opération : … »).</div></div>${pv}`}
+const blSet=(i,v)=>{BL.lines[i].cid=v;BL.lines[i].sug=false;render()};
+const blDel=i=>{BL.lines.splice(i,1);if(!BL.lines.length)BL=null;render()};
+function exBdrModele(){const out=blType==='out',C=S.catalogue||[];
+ const R=[[out?'Bordereau de livraison':'Bordereau de réception'],['N° bordereau :',''],['Date opération :',''],[out?'Destination :':'Source / Provenance :','']].concat(out?[['Type de destination :','Centre de santé']]:[]).concat([[],['N°','Désignation','Quantité'].concat(out?[]:['Lot','Péremption'])]);
+ C.forEach((c,i)=>R.push([i+1,catLab(c),'']));csv(out?'canevas-bordereau-livraison':'canevas-bordereau-reception',R)}
+function saveBdr(){const L=BL.lines,o=BL.type==='out';
+ if(L.some(l=>!l.cid))return say('Associez chaque ligne à un intrant du catalogue (ou supprimez-la avec ×).');
+ if(L.some(l=>!(l.qty>0)))return say('Chaque ligne doit avoir une quantité.');
+ const m={};L.forEach(l=>{const k=o?l.cid:l.cid+'|'+l.lot+'|'+l.exp;m[k]=m[k]?Object.assign({},m[k],{qty:m[k].qty+l.qty}):Object.assign({},l)});const lines=Object.values(m);
+ if(o){const t={};lines.forEach(l=>t[l.cid]=l.qty);for(const k in t){const p=S.products.find(x=>x.cid===k),av=p?p.usable:0;if(t[k]>av)return say(`Stock utilisable insuffisant pour ${catLab(S.catalogue.find(x=>x.id===k))} (disponible : ${av}).`)}}
+ if(!confirm(`Enregistrer ce bordereau ${o?'de livraison':'de réception'} (${lines.length} produit(s)) ?`))return;$('sv').disabled=true;
+ act({action:'importBordereau',move:{type:BL.type,date:BL.date||today(),ref:BL.ref,party:BL.party,dest:o?BL.destType:'',lines:lines.map(l=>({cid:l.cid,qty:l.qty,lot:o?'':l.lot,exp:o?'':l.exp}))}},'Bordereau importé : le stock est mis à jour.').then(ok=>{if(ok){BL=null;tab='hist'}render()})}
 /* --- guide d'utilisation --- */
 function vGuide(){const s=(t,b,open)=>`<details class="card gd"${open?' open':''}><summary>${t}</summary>${b}</details>`;
  return '<div class="card"><b>Guide d’utilisation</b><div class="mu">Touchez un titre pour lire la section. Les sections marquées « gestionnaire » ne concernent que le gestionnaire.</div></div>'+
@@ -234,6 +284,7 @@ function vGuide(){const s=(t,b,open)=>`<details class="card gd"${open?' open':''
  s('8. Catalogue (gestionnaire)',`<ul><li>Le catalogue contient la liste des intrants connus.</li><li><b>Ajouter</b> : nom, forme (comprimé, solution buvable, injectable…), dosage et conditionnement.</li><li><b>+ variante</b> : même nom, autre dosage ou autre forme.</li><li><b>✎</b> corrige le nom. <b>×</b> supprime un intrant qui n’est pas en stock.</li><li>Vous pouvez aussi coller une liste ou importer un onglet du Google Sheet.</li></ul>`)+
  s('9. Produits en stock (gestionnaire)',`<ul><li>Ouvrez <b>Produits</b> et cochez les intrants que vous avez en stock.</li><li>Pour chacun, indiquez le stock disponible, le stock de sécurité et la péremption éventuelle, puis touchez « Ajouter les intrants cochés au stock ».</li><li>Plus bas, vous pouvez modifier ces valeurs ou retirer un intrant qui n’a aucun mouvement.</li></ul>`)+
  s('Inventaire : mettre à jour le stock par fichier (gestionnaire)',`<ol><li>Ouvrez <b>Inventaire</b> et téléchargez le modèle : il liste tous les intrants du catalogue avec le stock actuel.</li><li>Remplissez ou corrigez <b>Stock dispo.</b> et, si besoin, <b>Péremption</b>, puis enregistrez en CSV ou Excel.</li><li>Choisissez le fichier. L’application affiche les lignes reconnues et celles qui ne le sont pas.</li><li>Touchez <b>Appliquer au stock</b>. Les quantités du fichier remplacent le stock des intrants concernés.</li></ol><p>Si une péremption est indiquée, le stock de l’intrant devient un seul lot avec cette date. Sinon, seules les quantités sont corrigées. L’option « mettre à zéro » vide les intrants absents du fichier. Les ajustements apparaissent dans l’historique et ne comptent pas comme consommation.</p>`)+
+ s('Importer un bordereau (gestionnaire)',`<ol><li>Ouvrez <b>Importer bordereau</b> et choisissez le type : <b>reçu</b> (entrée en stock) ou <b>livré</b> (sortie).</li><li>Téléchargez le <b>canevas</b> : il contient la liste des intrants du catalogue. Remplissez les quantités (et le lot, la péremption pour un bordereau reçu), la date et la source ou la destination en haut.</li><li>Choisissez votre fichier CSV ou Excel. Un bordereau existant avec des colonnes Désignation et Quantité fonctionne aussi.</li><li>L’application associe chaque désignation à un intrant du catalogue et affiche sa forme, son dosage, son conditionnement et son stock actuel. Corrigez les lignes marquées « non reconnu » ou « suggérée ».</li><li>Vérifiez le n°, la date et la <b>source</b>, puis touchez <b>Enregistrer le bordereau</b>.</li></ol><p>Pour un bordereau reçu, la source est conservée : dans <b>Stock</b>, chaque lot indique de qui et quand il a été reçu. Un intrant du catalogue pas encore en stock y est ajouté automatiquement.</p>`)+
  s('10. Utilisateurs (gestionnaire)',`<ul><li>Créez un compte avec un nom, un identifiant, un mot de passe et un rôle.</li><li><b>Utilisateur</b> : saisit les bordereaux et consulte. <b>Gestionnaire</b> : tous les droits.</li><li>Vous pouvez changer un rôle, réinitialiser un mot de passe ou désactiver un compte.</li><li>Renseignez l’e-mail du gestionnaire pour recevoir l’alerte quotidienne.</li><li>Gardez toujours au moins deux gestionnaires.</li></ul>`)+
  s('11. Installer sur le téléphone et orientation',`<ul><li><b>iPhone</b> : dans Safari, Partager puis « Sur l’écran d’accueil ». <b>Android</b> : dans Chrome, menu puis « Installer l’application ».</li><li>L’application suit l’orientation de l’appareil, en portrait comme en paysage, et dans tous les sens. Pour que l’écran tourne, la rotation automatique du téléphone doit être activée.</li><li>Une connexion Internet est nécessaire pour enregistrer.</li></ul>`)+
  s('12. Bonnes pratiques',`<ul><li>Saisissez chaque entrée et chaque sortie avec un bordereau, le jour même.</li><li>Renseignez toujours le lot et la péremption à l’entrée.</li><li>Fixez un stock de sécurité pour chaque produit important.</li><li>Ne partagez pas votre mot de passe.</li></ul>`)}
