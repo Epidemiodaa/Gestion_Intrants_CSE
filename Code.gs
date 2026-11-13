@@ -254,15 +254,32 @@ var SEED = [
   "Vancomycine 500mg",
   "Dermobacter solution"
 ];
+var SEED2 = [
+  "Cryoboîtes B/50",
+  "Étuis cryoboîtes B/50",
+  "Masque facial à oxygène forte concentration enfant",
+  "Potence",
+  "Surblouse C/100",
+  "Surbotte sachets de 6 paires",
+  "Poubelle jaune de 100L",
+  "Triple emballage",
+  "Cathéter G16",
+  "Sérum glucosé 5% 500 ml",
+  "Oméprazole injectable 40mg",
+  "Prométhazine comprimé 25 mg"
+]; // intrants des bordereaux ZS-DAA (mars et mai 2026) absents de la première liste
 function norm(t) { return String(t).toLowerCase().replace(/[^a-z0-9\u00e0-\u00ff]/g, ''); }
+function seedList(s, pr, key, list) { // ajoute les intrants manquants, une seule fois par liste
+  if (pr.getProperty(key)) return;
+  var have = {};
+  rows('Catalogue', C).forEach(function (r) { have[norm(catLabel({ name: r[1], dosage: String(r[3]), cond: r[4] }))] = 1; });
+  list.forEach(function (n) { if (!have[norm(n)]) appendText(s, [Utilities.getUuid(), n, '', '', '']); }); // les 100 premières lignes gardent leur numérotation
+  pr.setProperty(key, '1');
+}
 function catalogue() {
   var s = sh('Catalogue', C), pr = PropertiesService.getScriptProperties();
-  if (!pr.getProperty('catSeed3')) { // liste de départ (100 intrants des fiches ZS), sans doublon avec l'existant
-    var have = {};
-    rows('Catalogue', C).forEach(function (r) { have[norm(catLabel({ name: r[1], dosage: String(r[3]), cond: r[4] }))] = 1; });
-    SEED.forEach(function (n) { if (!have[norm(n)]) appendText(s, [Utilities.getUuid(), n, '', '', '']); }); // les 100 lignes sont conservées pour garder la même numérotation
-    pr.setProperty('catSeed3', '1');
-  }
+  seedList(s, pr, 'catSeed3', SEED);
+  seedList(s, pr, 'catSeed4', SEED2);
   return rows('Catalogue', C).map(function (r) { return { id: String(r[0]), name: r[1], forme: r[2], dosage: String(r[3]), cond: r[4] }; });
 }
 function appendText(s, row) {
