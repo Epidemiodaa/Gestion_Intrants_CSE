@@ -126,6 +126,7 @@ function deleteProduct(id) {
 function saveMove(m, u) {
   if (!m || !m.lines || !m.lines.length) throw new Error('Aucune ligne de produit.');
   if (m.type !== 'in' && m.type !== 'out') throw new Error('Type de bordereau invalide.');
+  if (m.dest === 'Ajustement inventaire') throw new Error('Destination réservée aux corrections du gestionnaire.');
   var moves = groupMoves(), prods = getProducts(moves), t = today(), out = [];
   m.lines.forEach(function (l) {
     var p = prods.filter(function (x) { return x.id === l.pid; })[0];
@@ -355,10 +356,10 @@ function importSheet(name) { // lit une feuille du classeur (colonne Intrant, + 
 
 /* ---------- Point de disponibilité (inventaire) ---------- */
 var INFO = '';
-function appendMove(type, ref, lines, u) {
+function appendMove(type, ref, lines, u, party) {
   if (!lines.length) return;
   var id = Utilities.getUuid(), s = sh('Mouvements', M), t = today();
-  var data = lines.map(function (l) { return [id, type, t, ref, 'Ajustement inventaire', 'Point de disponibilité', l.pid, l.qty, l.lot, l.exp, u.name]; });
+  var data = lines.map(function (l) { return [id, type, t, ref, 'Ajustement inventaire', party || 'Point de disponibilité', l.pid, l.qty, l.lot, l.exp, u.name]; });
   var start = s.getLastRow() + 1;
   s.getRange(start, 3, data.length, 1).setNumberFormat('@');
   s.getRange(start, 10, data.length, 1).setNumberFormat('@');
@@ -428,6 +429,19 @@ function importBordereau(m, u) { // lignes : { cid (intrant du catalogue), qty, 
     lines: m.lines.map(function (l) { return { pid: have[l.cid], qty: +l.qty, lot: l.lot || '', exp: l.exp || '' }; }) }, u);
 }
 
+/* ---------- Correction de quantité (gestionnaire) : n'est pas une sortie ---------- */
+function adjustStock(a, u) { // fixe la quantité d'un lot ; archivé comme « Ajustement » avec son motif
+  var p = getProducts(groupMoves()).filter(function (x) { return x.id === a.pid; })[0];
+  if (!p) throw new Error('Produit introuvable.');
+  var lot = a.lot || '', exp = a.exp || '', q = +a.qty, cur = 0;
+  if (!(q >= 0)) throw new Error('Quantité invalide.');
+  if (!String(a.motif || '').trim()) throw new Error('Le motif de la correction est obligatoire.');
+  p.lots.forEach(function (l) { if ((l.lot === 'Sans lot' ? '' : l.lot) === lot && l.exp === exp) cur += l.qty; });
+  var d = q - cur;
+  if (d === 0) throw new Error('Cette quantité est déjà celle du stock.');
+  appendMove(d > 0 ? 'in' : 'out', 'CORRECTION ' + today(), [{ pid: p.id, qty: Math.abs(d), lot: lot, exp: exp }], u, String(a.motif).trim());
+}
+
 function doPost(e) {
   try {
     INFO = '';
@@ -440,7 +454,7 @@ function doPost(e) {
     if (a === 'login') return login(b);
     var u = auth(b.token);
     if (a !== 'data') withLock(function () {
-      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau'];
+      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau', 'adjustStock'];
       if (mgr.indexOf(a) > -1 && u.role !== 'gestionnaire') throw new Error('Réservé au gestionnaire.');
       if (a === 'saveMove') saveMove(b.move, u);
       else if (a === 'addProduct') addProduct(b.product);
@@ -457,6 +471,7 @@ function doPost(e) {
       else if (a === 'importSheet') importSheet(b.name);
       else if (a === 'importInventory') importInventory(b, u);
       else if (a === 'importBordereau') importBordereau(b.move, u);
+      else if (a === 'adjustStock') adjustStock(b.adj, u);
       else throw new Error('Action inconnue.');
     });
     return json({ ok: true, data: getData(u), info: INFO });
