@@ -28,5 +28,7 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "./",
+  "prefer_related_applications": false
 }
