@@ -3,6 +3,7 @@
  * Coller dans Extensions > Apps Script, puis Déployer > Gérer les déploiements > Modifier > Nouvelle version.
  * Alertes par e-mail : exécuter une fois installerAlerteQuotidienne().
  */
+var VERSION = 16; // à incrémenter à chaque évolution : l'application signale un script Google pas à jour
 var P = ['id', 'nom', 'unite', 'stock_depart', 'stock_securite', 'peremption_depart', 'catalogue_id'];
 var C = ['id', 'nom', 'forme', 'dosage', 'conditionnement'];
 var M = ['bordereau_id', 'type', 'date', 'ref', 'type_destination', 'partenaire', 'produit_id', 'qte', 'lot', 'peremption', 'utilisateur', 'receptionnaire', 'autres_signataires'];
@@ -123,7 +124,7 @@ function getProducts(moves) {
 }
 function getData(u) {
   var moves = groupMoves();
-  var d = { me: { id: u.id, name: u.name, role: u.role, main: u.role === 'gestionnaire' && u.id === mainManagerId() }, products: getProducts(moves), catalogue: catalogue(), moves: moves.reverse() };
+  var d = { version: VERSION, me: { id: u.id, name: u.name, role: u.role, main: u.role === 'gestionnaire' && u.id === mainManagerId() }, products: getProducts(moves), catalogue: catalogue(), moves: moves.reverse() };
   if (u.role === 'gestionnaire') d.users = users().map(function (x) { return { id: x.id, name: x.name, login: x.login, role: x.role, actif: x.actif, email: x.email, main: x.id === mainManagerId() }; });
   if (u.role === 'gestionnaire') {
     d.sheets = listSheets();
@@ -429,24 +430,36 @@ function importInventory(b, u) {
       c = { id: Utilities.getUuid(), name: nm, forme: '', dosage: '', cond: '' };
       appendText(csh, [c.id, nm, '', '', '']); cat.push(c); nCat++;
     }
-    if (r.qty === null || r.qty === undefined || r.qty === '' || isNaN(+r.qty)) return; // sans quantité : catalogue seulement
     var p = pByC[c.id];
-    if (!p) {
+    if (!p) { // fiche de stock créée pour chaque intrant de l'inventaire
       var id = Utilities.getUuid();
       ps.appendRow([id, catLabel(c), c.cond, 0, 0, '', c.id]);
       p = pByC[c.id] = { id: id, cid: c.id, lots: [], stock: 0 }; nNew++;
     }
     seen[c.id] = 1;
+    if (r.qty === null || r.qty === undefined || r.qty === '' || isNaN(+r.qty)) return; // sans quantité : stock existant inchangé
     if (adjust(p, Math.max(0, +r.qty), r.exp || '')) nUp++;
   });
   if (b.zeroMissing) prods.forEach(function (p) { if (!seen[p.cid] && p.stock !== 0 && adjust(p, 0, '')) nZero++; });
   if (!(b.rows || []).length) throw new Error('Le fichier ne contient aucune ligne.');
   appendMove('out', ref, outs, u);
   appendMove('in', ref, ins, u);
-  INFO = 'Point de disponibilité appliqué : ' + nUp + ' intrant(s) mis à jour' + (nNew ? ', ' + nNew + ' ajouté(s) au stock' : '') + (nZero ? ', ' + nZero + ' mis à zéro' : '') + (nCat ? ', ' + nCat + ' nouvel(aux) intrant(s) ajouté(s) au catalogue' : '') + '.';
+  INFO = 'Point de disponibilité appliqué : ' + nUp + ' intrant(s) mis à jour' + (nNew ? ', ' + nNew + ' intrant(s) ajouté(s) au stock' : '') + (nZero ? ', ' + nZero + ' mis à zéro' : '') + (nCat ? ', ' + nCat + ' nouvel(aux) intrant(s) ajouté(s) au catalogue' : '') + '.';
 }
 
 /* ---------- Import d'un bordereau (reçu ou livré) ---------- */
+function ensureProducts(cids) { // crée la fiche de stock des intrants du catalogue qui n'en ont pas ; renvoie cid -> id produit
+  var cat = catalogue(), ps = sh('Produits', P), have = {}, any = false;
+  rows('Produits', P).forEach(function (r) { have[String(r[6])] = String(r[0]); });
+  cids.forEach(function (cid) {
+    if (have[cid]) return;
+    var c = cat.filter(function (x) { return x.id === cid; })[0];
+    if (!c) throw new Error('Intrant inconnu du catalogue.');
+    var id = Utilities.getUuid(); ps.appendRow([id, catLabel(c), c.cond, 0, 0, '', c.id]); have[cid] = id; any = true;
+  });
+  if (any) SpreadsheetApp.flush();
+  return have;
+}
 function importBordereau(m, u) { // lignes : { cid (intrant du catalogue), qty, lot, exp }
   if (!m || !m.lines || !m.lines.length) throw new Error('Aucune ligne dans le bordereau.');
   var cat = catalogue(), ps = sh('Produits', P), have = {};
@@ -507,7 +520,14 @@ function doPost(e) {
     if (a !== 'data') withLock(function () {
       var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau', 'adjustStock', 'enableAlerts', 'sendAlertsNow', 'deleteCatalogueTotal'];
       if (mgr.indexOf(a) > -1 && u.role !== 'gestionnaire') throw new Error('Réservé au gestionnaire.');
-      if (a === 'saveMove') saveMove(b.move, u);
+      if (a === 'saveMove') {
+        var mv = b.move || {};
+        if (mv.type === 'in') { // un intrant du catalogue pas encore en stock est mis en stock à sa première entrée
+          var cids = (mv.lines || []).filter(function (l) { return l.cid && !l.pid; }).map(function (l) { return l.cid; });
+          if (cids.length) { var map = ensureProducts(cids); mv.lines.forEach(function (l) { if (l.cid && !l.pid) l.pid = map[l.cid]; }); }
+        }
+        saveMove(mv, u);
+      }
       else if (a === 'addProduct') addProduct(b.product);
       else if (a === 'updateProduct') updateProduct(b.product);
       else if (a === 'deleteProduct') deleteProduct(b.id);

@@ -29,6 +29,9 @@ Le gestionnaire principal (le premier gestionnaire actif) peut supprimer totalem
 - L'import d'un inventaire (gestionnaire seulement) ajoute automatiquement au catalogue les intrants du fichier qui n'y sont pas, et au stock ceux qui ont une quantité.
 - Un bordereau de sortie ne propose que les produits en stock. L'émetteur est le compte connecté ; le réceptionnaire est obligatoire ; d'autres signataires sont possibles. Le bordereau s'imprime depuis l'Historique avec les cases de signature.
 
+## Versions
+`Code.gs` contient `VERSION` et `index.html` contient `NEED_V` : si les deux ne correspondent pas (script Google non redéployé), l'application affiche un bandeau rouge « Le script Google n'est pas à jour ». Après chaque mise à jour de `Code.gs` : Déployer > Gérer les déploiements > Modifier > Nouvelle version.
+
 ## Fichiers
 - `index.html` : l'application. L'URL de l'API est en haut du script (`API`).
 - `Code.gs` : backend Apps Script, à coller dans le Google Sheet.
