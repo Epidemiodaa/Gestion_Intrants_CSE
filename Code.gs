@@ -88,21 +88,47 @@ function lotsOf(p, moves) {
   moves.forEach(function (mv) { mv.lines.forEach(function (l) { if (l.pid === p.id) add(l.lot, l.exp, mv.type === 'in' ? l.qty : -l.qty, mv); }); });
   return Object.keys(m).map(function (k) { return m[k]; }).filter(function (x) { return x.qty !== 0; }).sort(byExp);
 }
+function moveStats(moves) { // consommation des 90 derniers jours (hors ajustements) et mouvements par produit
+  var cut = Utilities.formatDate(new Date(Date.now() - 90 * 864e5), Session.getScriptTimeZone(), 'yyyy-MM-dd'), t = today(), o = {}, ev = {};
+  moves.forEach(function (mv) {
+    var adj = mv.dest === 'Ajustement inventaire';
+    mv.lines.forEach(function (l) {
+      (ev[l.pid] = ev[l.pid] || []).push({ d: mv.date, q: mv.type === 'in' ? l.qty : -l.qty });
+      if (mv.type === 'out' && !adj && mv.date >= cut && mv.date <= t) o[l.pid] = (o[l.pid] || 0) + l.qty;
+    });
+  });
+  return { o: o, ev: ev };
+}
+/* Seuil minimal : au moins 1 pour tout intrant ; 5 à 10 pour les intrants en grande quantité (stock maximal déjà atteint ou consommation élevée). */
+function floorSecu(peak, cmm) {
+  var a = peak >= 100 ? 10 : peak >= 20 ? 5 : 1, b = cmm >= 20 ? 10 : cmm >= 5 ? 5 : 1;
+  return Math.max(a, b);
+}
 function getProducts(moves) {
-  var t = today();
+  var t = today(), st = moveStats(moves);
   return rows('Produits', P).map(function (r) {
     var p = { id: String(r[0]), name: r[1], unit: r[2], initial: +r[3] || 0, secu: +r[4] || 0, expInit: fd(r[5]), cid: String(r[6] || '') };
     p.lots = lotsOf(p, moves);
     p.stock = 0; p.usable = 0;
     p.lots.forEach(function (l) { p.stock += l.qty; if (!l.exp || l.exp >= t) p.usable += l.qty; });
+    p.cmm = Math.round((st.o[p.id] || 0) / 3 * 10) / 10;
+    var bal = p.initial, peak = Math.max(bal, p.stock);
+    (st.ev[p.id] || []).slice().sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; }).forEach(function (e) { bal += e.q; if (bal > peak) peak = bal; });
+    p.peak = peak;
+    p.floor = floorSecu(peak, p.cmm);
+    p.secuEff = Math.max(p.secu, p.floor);
+    p.status = p.usable <= 0 ? 'rupture' : p.usable <= p.secuEff ? 'tension' : 'ok';
     return p;
   });
 }
 function getData(u) {
   var moves = groupMoves();
-  var d = { me: { id: u.id, name: u.name, role: u.role }, products: getProducts(moves), catalogue: catalogue(), moves: moves.reverse() };
-  if (u.role === 'gestionnaire') d.users = users().map(function (x) { return { id: x.id, name: x.name, login: x.login, role: x.role, actif: x.actif, email: x.email }; });
-  if (u.role === 'gestionnaire') d.sheets = listSheets();
+  var d = { me: { id: u.id, name: u.name, role: u.role, main: u.role === 'gestionnaire' && u.id === mainManagerId() }, products: getProducts(moves), catalogue: catalogue(), moves: moves.reverse() };
+  if (u.role === 'gestionnaire') d.users = users().map(function (x) { return { id: x.id, name: x.name, login: x.login, role: x.role, actif: x.actif, email: x.email, main: x.id === mainManagerId() }; });
+  if (u.role === 'gestionnaire') {
+    d.sheets = listSheets();
+    try { d.alertsOn = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'envoyerAlertes'; }); } catch (e) { d.alertsOn = false; }
+  }
   return d;
 }
 
@@ -442,6 +468,25 @@ function adjustStock(a, u) { // fixe la quantité d'un lot ; archivé comme « A
   appendMove(d > 0 ? 'in' : 'out', 'CORRECTION ' + today(), [{ pid: p.id, qty: Math.abs(d), lot: lot, exp: exp }], u, String(a.motif).trim());
 }
 
+/* ---------- Gestionnaire principal : suppression totale d'un intrant ---------- */
+function mainManagerId() { // le gestionnaire principal est le premier gestionnaire actif de la feuille Utilisateurs
+  var m = users().filter(function (u) { return u.role === 'gestionnaire' && u.actif; })[0];
+  return m ? m.id : '';
+}
+function logAction(u, action, detail) { sh('Journal', ['date', 'utilisateur', 'action', 'detail']).appendRow([new Date(), u.name, action, detail]); }
+function deleteCatalogueTotal(id, u) { // retire l'intrant du catalogue, du stock et de tous les mouvements
+  if (u.id !== mainManagerId()) throw new Error('Réservé au gestionnaire principal.');
+  var c = catalogue().filter(function (x) { return x.id === id; })[0];
+  if (!c) throw new Error('Intrant introuvable.');
+  var ps = sh('Produits', P), pr = ps.getDataRange().getValues(), pids = {}, i, j, k, n = 0;
+  for (i = pr.length - 1; i >= 1; i--) if (String(pr[i][6]) === id) { pids[String(pr[i][0])] = 1; ps.deleteRow(i + 1); }
+  var ms = sh('Mouvements', M), mr = ms.getDataRange().getValues();
+  for (j = mr.length - 1; j >= 1; j--) if (pids[String(mr[j][6])]) { ms.deleteRow(j + 1); n++; }
+  var cs = sh('Catalogue', C), cr = cs.getDataRange().getValues();
+  for (k = cr.length - 1; k >= 1; k--) if (String(cr[k][0]) === id) cs.deleteRow(k + 1);
+  logAction(u, 'Suppression totale d\'un intrant', catLabel(c) + ' : ' + n + ' ligne(s) de mouvement supprimée(s)');
+}
+
 function doPost(e) {
   try {
     INFO = '';
@@ -454,7 +499,7 @@ function doPost(e) {
     if (a === 'login') return login(b);
     var u = auth(b.token);
     if (a !== 'data') withLock(function () {
-      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau', 'adjustStock'];
+      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue', 'importSheet', 'importInventory', 'importBordereau', 'adjustStock', 'enableAlerts', 'sendAlertsNow', 'deleteCatalogueTotal'];
       if (mgr.indexOf(a) > -1 && u.role !== 'gestionnaire') throw new Error('Réservé au gestionnaire.');
       if (a === 'saveMove') saveMove(b.move, u);
       else if (a === 'addProduct') addProduct(b.product);
@@ -472,6 +517,9 @@ function doPost(e) {
       else if (a === 'importInventory') importInventory(b, u);
       else if (a === 'importBordereau') importBordereau(b.move, u);
       else if (a === 'adjustStock') adjustStock(b.adj, u);
+      else if (a === 'deleteCatalogueTotal') deleteCatalogueTotal(b.id, u);
+      else if (a === 'enableAlerts') { installerAlerteQuotidienne(); INFO = 'Alertes quotidiennes activées : un e-mail est envoyé chaque jour vers 7 h.'; }
+      else if (a === 'sendAlertsNow') alertesEmail(true);
       else throw new Error('Action inconnue.');
     });
     return json({ ok: true, data: getData(u), info: INFO });
@@ -479,19 +527,24 @@ function doPost(e) {
 }
 
 /* ---------- Alertes par e-mail (déclencheur quotidien) ---------- */
-function envoyerAlertes() {
-  var lim = Utilities.formatDate(new Date(Date.now() + 90 * 864e5), Session.getScriptTimeZone(), 'yyyy-MM-dd'), t = today(), L = [];
+function alertesEmail(force) {
+  var lim = Utilities.formatDate(new Date(Date.now() + 90 * 864e5), Session.getScriptTimeZone(), 'yyyy-MM-dd'), t = today(), L = [], nR = 0, nT = 0, nP = 0;
   getProducts(groupMoves()).forEach(function (p) {
-    if (p.stock <= 0) L.push('RUPTURE : ' + p.name);
-    else if (p.secu > 0 && p.stock <= p.secu) L.push('Sous le stock de sécurité : ' + p.name + ' (' + p.stock + ' / seuil ' + p.secu + ')');
+    if (p.status === 'rupture') { nR++; L.push('RUPTURE : ' + p.name + ' (utilisable : ' + p.usable + ')'); }
+    else if (p.status === 'tension') { nT++; L.push('TENSION : ' + p.name + ' : ' + p.usable + ' utilisable, seuil de sécurité ' + p.secuEff); }
     p.lots.forEach(function (l) {
-      if (l.exp && l.exp < t) L.push('PÉRIMÉ : ' + p.name + ', lot ' + l.lot + ' (' + l.qty + ')');
-      else if (l.exp && l.exp <= lim) L.push('Péremption proche : ' + p.name + ', lot ' + l.lot + ', ' + l.exp + ' (' + l.qty + ')');
+      if (!l.exp || l.qty <= 0) return;
+      if (l.exp < t) { nP++; L.push('PÉRIMÉ : ' + p.name + ', lot ' + l.lot + ' (' + l.qty + ')'); }
+      else if (l.exp <= lim) { nP++; L.push('Péremption proche : ' + p.name + ', lot ' + l.lot + ', ' + l.exp + ' (' + l.qty + ')'); }
     });
   });
   var to = users().filter(function (u) { return u.actif && u.role === 'gestionnaire' && u.email; }).map(function (u) { return u.email; }).join(',');
-  if (L.length && to) MailApp.sendEmail(to, 'Alertes de stock (' + L.length + ')', L.join('\n'));
+  if (!to) { if (force) throw new Error("Aucune adresse e-mail de gestionnaire : renseignez-la dans l'onglet Utilisateurs."); return; }
+  if (!L.length) { if (force) INFO = 'Aucune alerte en ce moment : rien à envoyer.'; return; }
+  MailApp.sendEmail(to, 'Alertes de stock : ' + nR + ' rupture(s), ' + nT + ' tension(s), ' + nP + ' péremption(s)', L.join('\n'));
+  if (force) INFO = 'E-mail envoyé à : ' + to;
 }
+function envoyerAlertes() { alertesEmail(false); } // appelé chaque jour par le déclencheur
 function installerAlerteQuotidienne() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'envoyerAlertes') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('envoyerAlertes').timeBased().everyDays(1).atHour(7).create();
