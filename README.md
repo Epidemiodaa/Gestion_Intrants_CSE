@@ -25,6 +25,10 @@ Onglet **Importer bordereau** (gestionnaire) : choisissez « reçu » (entrée) 
 ## Suppression totale d'un intrant
 Le gestionnaire principal (le premier gestionnaire actif) peut supprimer totalement un intrant : catalogue, stock et lignes de mouvements (historique, fiches de stock). Confirmation par saisie de « SUPPRIMER », action irréversible notée dans la feuille `Journal`. Les autres gestionnaires ne peuvent supprimer que les intrants qui ne sont pas en stock.
 
+## Inventaire, sorties et signataires
+- L'import d'un inventaire (gestionnaire seulement) ajoute automatiquement au catalogue les intrants du fichier qui n'y sont pas, et au stock ceux qui ont une quantité.
+- Un bordereau de sortie ne propose que les produits en stock. L'émetteur est le compte connecté ; le réceptionnaire est obligatoire ; d'autres signataires sont possibles. Le bordereau s'imprime depuis l'Historique avec les cases de signature.
+
 ## Fichiers
 - `index.html` : l'application. L'URL de l'API est en haut du script (`API`).
 - `Code.gs` : backend Apps Script, à coller dans le Google Sheet.

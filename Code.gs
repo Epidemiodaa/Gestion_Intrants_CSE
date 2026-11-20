@@ -5,7 +5,7 @@
  */
 var P = ['id', 'nom', 'unite', 'stock_depart', 'stock_securite', 'peremption_depart', 'catalogue_id'];
 var C = ['id', 'nom', 'forme', 'dosage', 'conditionnement'];
-var M = ['bordereau_id', 'type', 'date', 'ref', 'type_destination', 'partenaire', 'produit_id', 'qte', 'lot', 'peremption', 'utilisateur'];
+var M = ['bordereau_id', 'type', 'date', 'ref', 'type_destination', 'partenaire', 'produit_id', 'qte', 'lot', 'peremption', 'utilisateur', 'receptionnaire', 'autres_signataires'];
 var U = ['id', 'nom', 'login', 'mot_de_passe', 'role', 'actif', 'email'];
 
 function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -72,7 +72,7 @@ function groupMoves() {
   var map = {}, arr = [];
   rows('Mouvements', M).forEach(function (r) {
     var m = map[r[0]];
-    if (!m) { m = map[r[0]] = { id: String(r[0]), type: r[1], date: fd(r[2]), ref: r[3], dest: r[4], party: r[5], user: r[10] || '', lines: [] }; arr.push(m); }
+    if (!m) { m = map[r[0]] = { id: String(r[0]), type: r[1], date: fd(r[2]), ref: r[3], dest: r[4], party: r[5], user: r[10] || '', recep: r[11] || '', signers: r[12] || '', lines: [] }; arr.push(m); }
     m.lines.push({ pid: String(r[6]), qty: +r[7], lot: r[8] || '', exp: fd(r[9]) });
   });
   return arr;
@@ -153,6 +153,7 @@ function saveMove(m, u) {
   if (!m || !m.lines || !m.lines.length) throw new Error('Aucune ligne de produit.');
   if (m.type !== 'in' && m.type !== 'out') throw new Error('Type de bordereau invalide.');
   if (m.dest === 'Ajustement inventaire') throw new Error('Destination réservée aux corrections du gestionnaire.');
+  if (m.type === 'out' && !String(m.recep || '').trim()) throw new Error('Le réceptionnaire du bordereau est obligatoire.');
   var moves = groupMoves(), prods = getProducts(moves), t = today(), out = [];
   m.lines.forEach(function (l) {
     var p = prods.filter(function (x) { return x.id === l.pid; })[0];
@@ -167,7 +168,7 @@ function saveMove(m, u) {
     if (need > 0) throw new Error('Stock utilisable insuffisant pour ' + p.name + ' (disponible : ' + p.usable + ').');
   });
   var id = Utilities.getUuid(), s = sh('Mouvements', M);
-  var data = out.map(function (l) { return [id, m.type, m.date, m.ref || '', m.dest || '', m.party || '', l.pid, l.qty, l.lot, l.exp, u.name]; });
+  var data = out.map(function (l) { return [id, m.type, m.date, m.ref || '', m.dest || '', m.party || '', l.pid, l.qty, l.lot, l.exp, u.name, m.type === 'out' ? String(m.recep).trim() : '', m.signers || '']; });
   var start = s.getLastRow() + 1;
   s.getRange(start, 3, data.length, 1).setNumberFormat('@');
   s.getRange(start, 10, data.length, 1).setNumberFormat('@');
@@ -385,7 +386,7 @@ var INFO = '';
 function appendMove(type, ref, lines, u, party) {
   if (!lines.length) return;
   var id = Utilities.getUuid(), s = sh('Mouvements', M), t = today();
-  var data = lines.map(function (l) { return [id, type, t, ref, 'Ajustement inventaire', party || 'Point de disponibilité', l.pid, l.qty, l.lot, l.exp, u.name]; });
+  var data = lines.map(function (l) { return [id, type, t, ref, 'Ajustement inventaire', party || 'Point de disponibilité', l.pid, l.qty, l.lot, l.exp, u.name, '', '']; });
   var start = s.getLastRow() + 1;
   s.getRange(start, 3, data.length, 1).setNumberFormat('@');
   s.getRange(start, 10, data.length, 1).setNumberFormat('@');
@@ -417,12 +418,18 @@ function importInventory(b, u) {
     });
     return true;
   }
+  var csh = sh('Catalogue', C), nCat = 0;
   (b.rows || []).forEach(function (r) {
-    if (r.qty === null || r.qty === undefined || r.qty === '' || isNaN(+r.qty)) return;
+    var nm = String(r.name || '').trim();
+    if (!nm) return;
     var c = null, bn = r.num && cat[r.num - 1];
-    if (bn && norm(catLabel(bn)) === norm(r.name)) c = bn;
-    else cat.forEach(function (x) { if (!c && norm(catLabel(x)) === norm(r.name)) c = x; });
-    if (!c) { unk.push(r.name); return; }
+    if (bn && norm(catLabel(bn)) === norm(nm)) c = bn;
+    else cat.forEach(function (x) { if (!c && norm(catLabel(x)) === norm(nm)) c = x; });
+    if (!c) { // intrant absent du catalogue : il y est ajouté
+      c = { id: Utilities.getUuid(), name: nm, forme: '', dosage: '', cond: '' };
+      appendText(csh, [c.id, nm, '', '', '']); cat.push(c); nCat++;
+    }
+    if (r.qty === null || r.qty === undefined || r.qty === '' || isNaN(+r.qty)) return; // sans quantité : catalogue seulement
     var p = pByC[c.id];
     if (!p) {
       var id = Utilities.getUuid();
@@ -433,11 +440,10 @@ function importInventory(b, u) {
     if (adjust(p, Math.max(0, +r.qty), r.exp || '')) nUp++;
   });
   if (b.zeroMissing) prods.forEach(function (p) { if (!seen[p.cid] && p.stock !== 0 && adjust(p, 0, '')) nZero++; });
-  if (!Object.keys(seen).length) throw new Error('Aucune ligne reconnue : vérifiez les noms des intrants du fichier.');
+  if (!(b.rows || []).length) throw new Error('Le fichier ne contient aucune ligne.');
   appendMove('out', ref, outs, u);
   appendMove('in', ref, ins, u);
-  INFO = 'Point de disponibilité appliqué : ' + nUp + ' intrant(s) mis à jour' + (nNew ? ', ' + nNew + ' ajouté(s) au stock' : '') + (nZero ? ', ' + nZero + ' mis à zéro' : '') +
-    (unk.length ? '. Non reconnus (' + unk.length + ') : ' + unk.slice(0, 8).join(', ') + (unk.length > 8 ? '…' : '') : '.');
+  INFO = 'Point de disponibilité appliqué : ' + nUp + ' intrant(s) mis à jour' + (nNew ? ', ' + nNew + ' ajouté(s) au stock' : '') + (nZero ? ', ' + nZero + ' mis à zéro' : '') + (nCat ? ', ' + nCat + ' nouvel(aux) intrant(s) ajouté(s) au catalogue' : '') + '.';
 }
 
 /* ---------- Import d'un bordereau (reçu ou livré) ---------- */
@@ -451,7 +457,7 @@ function importBordereau(m, u) { // lignes : { cid (intrant du catalogue), qty, 
     if (!have[c.id]) { var id = Utilities.getUuid(); ps.appendRow([id, catLabel(c), c.cond, 0, 0, '', c.id]); have[c.id] = id; } // mis en stock automatiquement
   });
   SpreadsheetApp.flush();
-  saveMove({ type: m.type, date: m.date || today(), ref: m.ref, dest: m.dest, party: m.party,
+  saveMove({ type: m.type, date: m.date || today(), ref: m.ref, dest: m.dest, party: m.party, recep: m.recep, signers: m.signers,
     lines: m.lines.map(function (l) { return { pid: have[l.cid], qty: +l.qty, lot: l.lot || '', exp: l.exp || '' }; }) }, u);
 }
 
